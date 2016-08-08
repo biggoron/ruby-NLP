@@ -1,0 +1,8 @@
+remove nul string from skip words
+add regexp contructor for skip words
+make a document model
+make a corpus model
+Externalize the parser part (simple one)
+learn n-grams
+
+Problems: skip words at the end of words
