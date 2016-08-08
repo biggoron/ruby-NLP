@@ -5,7 +5,6 @@ class TFHash
 # @length and @max are the number of unique words and maximum
 # frequency
   # some aliases:
-  alias_method :raw_frequency, :[]
   attr_accessor :length, :max, :skip_words
   # Constructors
   # a term-frequency hash can be constructed with
@@ -21,7 +20,8 @@ class TFHash
     # The default frequency is 0
     @tfh = Hash.new(0)
     # Unrelevant words, punctuation etc...
-    @skip_words = ['', '.', ',', '/']
+    @skip_words = ['', '.', ',', '/', ' ', '\n']
+    @skip_words_r = /\n|\.|,|\/| /
   end
   def self.from_file(filepath)
     obj = self.new
@@ -95,7 +95,10 @@ class TFHash
   # The regex should be an instance variable, that can be
   # constructed from array
     raise ArgumentError, "The argument needs to be a string" if text.class != String
-    self.add_array(text.split(' '))
+    puts "--"
+    puts text.split(@skip_words_r)
+    puts "--"
+    self.add_array(text.split(@skip_words_r))
   end
 
   def add_file(filepath)
@@ -110,6 +113,7 @@ class TFHash
       raise
     ensure
     end
+    puts @tfh
     self
   end
 
