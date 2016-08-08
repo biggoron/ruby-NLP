@@ -95,9 +95,6 @@ class TFHash
   # The regex should be an instance variable, that can be
   # constructed from array
     raise ArgumentError, "The argument needs to be a string" if text.class != String
-    puts "--"
-    puts text.split(@skip_words_r)
-    puts "--"
     self.add_array(text.split(@skip_words_r))
   end
 
@@ -113,7 +110,6 @@ class TFHash
       raise
     ensure
     end
-    puts @tfh
     self
   end
 

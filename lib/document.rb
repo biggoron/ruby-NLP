@@ -1,6 +1,7 @@
 # TODO: There is nothing here yet
 require_relative 'term_frequency'
-Class Document
+
+class Document
 # Represent a unit of text. Many documents can form a corpus,
 # another class
 
@@ -26,11 +27,13 @@ Class Document
     obj.add_file(filepath)
     obj 
   end
+
   def self.from_string(string)
     obj = self.new
     obj.add_string(string)
     obj 
   end
+
   def self.from_array(array)
     obj = self.new
     obj.add_array(array)
@@ -38,6 +41,9 @@ Class Document
   end
 
   def add_array(array, skip_regex=@skip_regex)
+    if array.class.name != "Array"
+      raise ArgumentError, "The argument needs to be an Array"
+    end
     array = array.join(' ').split(skip_regex)
     array.each do |w|
       next if w == ''
@@ -49,13 +55,25 @@ Class Document
   end
 
   def add_string(text, skip_regex = @skip_regex)
+    if text.class.name != "String"
+      raise ArgumentError, "The argument needs to be an String"
+    end
     self.add_array(text.split(skip_regex))
   end
 
   def add_file(filepath, skip_regex = @skip_regex)
-    File.foreach(filepath) { |line|  
-      self.add_string(line, skip_regex)
-    }
+    if filepath.class.name != "String"
+      raise ArgumentError, "The argument needs to be an String"
+    end
+    begin
+      File.foreach(filepath) { |line|  
+        self.add_string(line, skip_regex)
+      }
+    rescue Exception
+      STDERR.puts "Failed to open \"#{filepath}\""
+      raise
+    ensure
+    end
     self
   end
 
