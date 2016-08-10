@@ -16,6 +16,7 @@ class TestDocument < Minitest::Test
     @string_data5 = "simple, double. simple"
     @file_data1   = "./data/no_text"
     @file_data2   = "./data/simple_text"
+    @my_doc = Document.new()
   end
 
   def test_document_constructors_returns_document_object
@@ -34,9 +35,9 @@ class TestDocument < Minitest::Test
   end
 
   def test_add_array_fills_document
-    my_TFH = Document.new()
-    assert_equal my_TFH.add_array(@data4).length,  3
-    assert_equal my_TFH.add_array(@data4).length,  6
+    my_doc = Document.new()
+    assert_equal my_doc.add_array(@data4).length,  3
+    assert_equal my_doc.add_array(@data4).length,  6
   end
 
   def test_invalid_argument_raises_argument_exception
@@ -64,5 +65,25 @@ class TestDocument < Minitest::Test
     assert_raises ArgumentError do
       Document.from_array()
     end
+  end
+
+  def test_add_skip_word_behaves_correctly
+    assert_raises ArgumentError do
+      @my_doc.skip_words = ("some string")
+    end
+    @my_doc.skip_words = /\.|,| /
+    @my_doc.add_array(["one,", " two;", " three."])
+    assert_equal @my_doc.source, ["one", "two;", "three"]
+
+    @my_doc.reset
+    @my_doc.skip_words = [".", " "]
+    @my_doc.add_array(["one,", " two;", " three."])
+
+    assert_equal @my_doc.source, ["one,", "two;", "three"]
+    @my_doc.reset
+    @my_doc.skip_words = [".", " "]
+    @my_doc.add_skip_word = ","
+    @my_doc.add_array(["one,", " two;", " three."])
+    assert_equal @my_doc.source, ["one", "two;", "three"]
   end
 end

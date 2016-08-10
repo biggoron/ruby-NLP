@@ -16,9 +16,8 @@ class Document
 
     @tfh = TFHash.new()
 
-    # Unrelevant words, punctuation etc...
-    @skip_words_array_memory = ['.', ' ', ',', '/']
-    @skip_words = /\.| |,|\/|\n/ # For example
+    @skip_words_array_memory = []
+    @skip_words = /$^/ # For example
   end
 
   # Constructors
@@ -40,17 +39,27 @@ class Document
     obj 
   end
 
-  def add_array(array, skip_regex=@skip_regex)
+  def reset
+    @source = []
+
+    @length = 0
+
+    @tfh = TFHash.new()
+
+    # TODO: clever defaults
+    @skip_words_array_memory = []
+    @skip_words = /$^/ # Matches nothing
+  end
+
+  def add_array(array, skip_regex=@skip_words)
     if array.class.name != "Array"
       raise ArgumentError, "The argument needs to be an Array"
     end
-    array = array.join(' ').split(skip_regex)
-    array.each do |w|
-      next if w == ''
-      @source << w
-      @length += 1
-    end
-    @tfh.add_array(array)
+
+    @source = array
+    @length = array.length
+
+    self.update_tfh
     self
   end
 
@@ -58,6 +67,8 @@ class Document
     if text.class.name != "String"
       raise ArgumentError, "The argument needs to be an String"
     end
+      
+    # Relies on the array constructor
     self.add_array(text.split(skip_regex))
   end
 
@@ -70,6 +81,7 @@ class Document
         self.add_string(line, skip_regex)
       }
     rescue Exception
+      # Catches wrong filenames for example
       STDERR.puts "Failed to open \"#{filepath}\""
       raise
     ensure
@@ -79,9 +91,14 @@ class Document
 
   def skip_words= (array)
     if array.class.name == "Array"
+      # Stores the list of skip words and automatically
+      # builds a corresponding regexp with update_skip_words
       @skip_words_array_memory = array
-      @skip_words = regexify(array)
-    elsif array.class.name = "Regexp"
+      @skip_words = self.update_skip_words
+    elsif array.class.name == "Regexp"
+      # No array of skip words means more liberty in the
+      # choice of skip words but less flexibility in changing
+      # them
       @skip_words_array_memory = nil
       @skip_words = array
     else
@@ -93,24 +110,34 @@ class Document
 
   def add_skip_word(word)
     unless @skip_words_array_memory    
+      # The array of skip words needs to be defined
       raise NoMethodError.new("Can't add skip word if skip word list was built from regexp. Try to build it from array of words.")
       return false
     end
+    
+    # Add the word and construct a new regexp
     @skip_words_array_memory << word
-
     self.update_skip_words
 
     return true
   end
 
-  
+  def update_tfh
+    # Tries to eliminate the punctuation and skip words
+    # building TF hash
+    # TODO: carefull to split words included in normal words
+    stripped_array = array.join(' ').split(skip_regex)
+
+    # Builds the TF
+    @tfh.add_array(stripped_array)
+  end
 
 private
   def update_skip_words
     temp = []
     escape = ['.', '/', '*', '^', '$'] # TODO: needs to be more exhaustive
     @skip_words_array_memory.each do |w|
-      w = '\\' + w if escape.include?(w)
+      w = "\\" + w if escape.include?(w)
       temp << w
     end
     @skip_words = Regexp.new(temp.join('|'))
