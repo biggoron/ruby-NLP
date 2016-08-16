@@ -16,8 +16,8 @@ class Document
 
     @tfh = TFHash.new()
 
-    @skip_words_array_memory = []
-    @skip_words = /$^/ # For example
+    @skip_words_array_memory = [" "]
+    @skip_words = / / # For example
   end
 
   # Constructors
@@ -47,23 +47,28 @@ class Document
     @tfh = TFHash.new()
 
     # TODO: clever defaults
-    @skip_words_array_memory = []
-    @skip_words = /$^/ # Matches nothing
+    @skip_words_array_memory = [" "]
+    @skip_words = / / # Matches whitespace
   end
 
-  def add_array(array, skip_regex=@skip_words)
+  def length=
+    @source.length
+  end
+
+  def add_array(array)
     if array.class.name != "Array"
       raise ArgumentError, "The argument needs to be an Array"
     end
-
-    @source = array
-    @length = array.length
+    
+    array.each do |w|
+      @source << w unless w == ''
+    end
 
     self.update_tfh
     self
   end
 
-  def add_string(text, skip_regex = @skip_regex)
+  def add_string(text, skip_regex = @skip_words)
     if text.class.name != "String"
       raise ArgumentError, "The argument needs to be an String"
     end
@@ -72,7 +77,7 @@ class Document
     self.add_array(text.split(skip_regex))
   end
 
-  def add_file(filepath, skip_regex = @skip_regex)
+  def add_file(filepath, skip_regex = @skip_words)
     if filepath.class.name != "String"
       raise ArgumentError, "The argument needs to be an String"
     end
@@ -123,16 +128,11 @@ class Document
   end
 
   def update_tfh
-    # Tries to eliminate the punctuation and skip words
-    # building TF hash
-    # TODO: carefull to split words included in normal words
-    stripped_array = array.join(' ').split(skip_regex)
 
     # Builds the TF
-    @tfh.add_array(stripped_array)
+    @tfh = TFHash.from_array(@source)
   end
 
-private
   def update_skip_words
     temp = []
     escape = ['.', '/', '*', '^', '$'] # TODO: needs to be more exhaustive

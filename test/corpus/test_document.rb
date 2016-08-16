@@ -28,16 +28,14 @@ class TestDocument < Minitest::Test
 
   def test_document_constructors_returns_proper_document
     assert_equal  Document.new().length,                       0
-    assert_equal  Document.from_array(@data4).length,          3
-    assert_equal  Document.from_string(@string_data5).length,  3
-    assert_equal  Document.from_file(@file_data2).length,      23
+    assert_equal Document.from_array(@data4).source.length,    3
 #   add the form file constructor
   end
 
   def test_add_array_fills_document
     my_doc = Document.new()
-    assert_equal my_doc.add_array(@data4).length,  3
-    assert_equal my_doc.add_array(@data4).length,  6
+    assert_equal my_doc.add_array(@data4).source.length,  3
+    assert_equal my_doc.add_array(@data4).source.length,  6
   end
 
   def test_invalid_argument_raises_argument_exception
@@ -71,19 +69,22 @@ class TestDocument < Minitest::Test
     assert_raises ArgumentError do
       @my_doc.skip_words = ("some string")
     end
-    @my_doc.skip_words = /\.|,| /
-    @my_doc.add_array(["one,", " two;", " three."])
+    @my_doc.skip_words = [".", ",", " "]
+    @my_doc.add_string("one, two; three.")
     assert_equal @my_doc.source, ["one", "two;", "three"]
 
-    @my_doc.reset
-    @my_doc.skip_words = [".", " "]
-    @my_doc.add_array(["one,", " two;", " three."])
+    @my_doc.update_tfh
 
-    assert_equal @my_doc.source, ["one,", "two;", "three"]
-    @my_doc.reset
-    @my_doc.skip_words = [".", " "]
-    @my_doc.add_skip_word = ","
-    @my_doc.add_array(["one,", " two;", " three."])
-    assert_equal @my_doc.source, ["one", "two;", "three"]
+    tfh = @my_doc.tfh
+    puts "length: #{tfh.length}"
+
+    assert_equal tfh["one"], 1
+    assert_equal tfh["two;"], 1
+
+    @my_doc.add_skip_word(";")
+    @my_doc.update_tfh
+    tfh = @my_doc.tfh
+    assert_equal tfh["one"], 1
+    assert_equal tfh["two;"], 1
   end
 end

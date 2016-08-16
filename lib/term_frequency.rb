@@ -14,14 +14,14 @@ class TFHash
   #
   # Every constructor channels the data throught
   # file > string > array and ultimatly add_array is called
-  def initialize()
+  def initialize(skip_words = [" ", ".", ",", "\n"])
     @length = 0
     @max = 0
     # The default frequency is 0
     @tfh = Hash.new(0)
     # Unrelevant words, punctuation etc...
-    @skip_words = ['', '.', ',', '/', ' ', '\n']
-    @skip_words_r = /\n|\.|,|\/| /
+    @skip_words = skip_words
+    @skip_words_r = regexpify(@skip_words)
   end
   def self.from_file(filepath)
     obj = self.new
@@ -78,17 +78,13 @@ class TFHash
   # Merge an array of words in the Hash
     raise ArgumentError, "The argument needs to be an Array" if array.class != Array
     array.each do |word|
-      # TODO: test the skip words thing
-      next if @skip_words.include?(word)
+      next unless word != ""
       @length += 1   if @tfh[word.to_s]  == 0
       @max += 1      if @tfh[word.to_s]  == @max
       @tfh[word.to_s] =  (@tfh[word.to_s] += 1)
     end
     self
   end
-
-  # TODO: A rollback function to remove an array/string/file
-  # from the hash
 
   def add_string(text)
   # Merge a string in the Hash
@@ -118,5 +114,22 @@ class TFHash
     @tfh = Hash.new(0)
     @length = 0
     @max = 0
+  end
+
+private
+
+  def regexpify(array)
+    # Transforms the array of words into a regexp matching
+    # any of the words
+    temp = []
+    escape = ['.', '/', '*', '^', '$'] # TODO: needs to be more exhaustive
+    unless array.length > 0
+      return Regexp.new(' ') # Matches space
+    end
+    array.each do |w|
+      w = "\\" + w if escape.include?(w)
+      temp << w
+    end
+    return Regexp.new(temp.join('|'))
   end
 end

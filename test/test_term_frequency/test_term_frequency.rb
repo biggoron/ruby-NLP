@@ -51,12 +51,12 @@ class TestTFHash < Minitest::Test
     assert_equal my_TFH.max,                       3
   end
   def test_add_file_fills_tfh
-    my_TFH = TFHash.new()
+    my_TFH = TFHash.new([" ", ".", ",", "\n"])
     assert_equal my_TFH.add_file(@file_data2).length,  18
     assert_equal my_TFH.max,                           2
   end
   def test_add_string_fills_tfh
-    my_TFH = TFHash.new()
+    my_TFH = TFHash.new([" ", ".", ",", "\n"])
     assert_equal my_TFH.add_string(@string_data1).length,  0
     assert_equal my_TFH.max,                               0
     assert_equal my_TFH.add_string(@string_data2).length,  1
