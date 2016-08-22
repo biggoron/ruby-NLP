@@ -132,4 +132,14 @@ private
     end
     return Regexp.new(temp.join('|'))
   end
+    
+  def merge(other_tfh)
+    array_to_add = []
+    other_tfh.tfh.each do |token, count|
+      @count.times do
+        array_to_add << token 
+      end
+    end
+    self.add_array(array_to_add)
+  end
 end
