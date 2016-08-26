@@ -56,6 +56,10 @@ class TFHash
     end
   end
 
+  def words
+    @tfh.keys
+  end
+
   def exists?(term)
     # Binary frequency
     #TODO: test

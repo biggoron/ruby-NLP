@@ -1,3 +1,5 @@
+# Doesn't work yet
+
 class MarkovChain
 # A simplified markov chain implementation to model texts
   attr_accessor :nodes, :current_node
@@ -8,6 +10,7 @@ class MarkovChain
     @nodes = {}
     @current_node = nil
   end
+  
 # def generate(n, separator = ' ')
 # # TODO: adapt to a multiword node
 #     random_word = @nodes.keys.sample
@@ -26,6 +29,7 @@ class MarkovChain
 #   # spaces
 #   return string.join(separator)
 # end
+
   def add_node(word)
   # TODO: adapt to a multiword node
     if @nodes.key?(word)

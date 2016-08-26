@@ -4,8 +4,12 @@ class Document
 # Represent a unit of text. Many documents can form a corpus,
 # another class
 
-  # @length is the number of words
-  attr_accessor :stop_words, :source, :tfh
+# A document can clean itself (tokenization, stop-word 
+# removal etc...) and yield various representations of itself 
+# like TF-IDF, ngrams, markov model etc...
+
+  attr_accessor :stop_words, :source, :tfh, :corpus
+
   # Constructors
   def initialize()
     # Initializes an empty document, not very usefull
@@ -19,8 +23,7 @@ class Document
     @stop_words = / / # For example
   end
 
-  # Constructors
-  # They instantiate empty docs, and fill them with methods
+  # instantiate empty docs, and fill them with methods
   # :add_file, :add_string or :add_array
   def self.from_file(filepath)
     obj = self.new
@@ -61,7 +64,7 @@ class Document
 
   def add_array(array)
   # Appends an array of words to the document
-    if not array.is_a Array
+    if not (array.is_a? Array)
       raise ArgumentError, "The argument needs to be an Array"
     end
     
@@ -113,8 +116,31 @@ class Document
     # I return the Document object to enable chaining
     self
   end
+  # --- End of constructors --- 
 
+  # --- Corpus methods ---
+  # being inserted in a corpus is necessary to perform some
+  # processing like IDF
+    
+  def has_corpus?
+    not @corpus.nil?
+  end
+
+  def corpus= (corpus)
+    @corpus = corpus
+  end
+
+  def corpus
+    @corpus
+  end
+  # --- end of corpus methods ---
+
+  # --- stop words ---
+  # Stop words are words that get removed when analysing the
+  # document
+    
   def stop_words= (array)
+  # Defining the stop words
     if array.is_a? Array
       # Stores the list of stop words and automatically
       # builds a corresponding regexp with update_stop_words
@@ -159,12 +185,9 @@ class Document
     return true
   end
 
-  def update_tfh
-  # Builds the term frequency hash
-    @tfh = TFHash.from_array(@source)
-  end
-
   def update_stop_words
+  # Takes the stop word list and re-builds the regexp used to
+  # spot them.
     temp = []
     # Exhaustive list of characters that need to be escaped
     # in ruby regexps
@@ -179,8 +202,25 @@ class Document
     # concatenating stop_words with |
     @stop_words = Regexp.new(temp.join('|'))
   end
+  # --- end of stop word methods ---
 
-  # N-grams
+
+  # --- TF-IDF methods ---
+  def update_tfh
+  # Builds the term frequency hash
+  # cf term_frequency.rb
+    @tfh = TFHash.from_array(@source)
+  end
+  
+  def tfidf(word)
+    raise(NoMethodError, "Needs a corpus to compute TFIDF") unless self.has_corpus?
+    self.update_tfh
+    @corpus.update_idf!
+    return @tfh[word].to_f * @corpus.idf.call(word)
+  end
+  # --- end of tfh methods ---
+
+  # --- N-grams ---
   def ngrams(n)
     # Already implemented in core ruby for iterables with
     # each_cons.
@@ -198,5 +238,6 @@ class Document
   def trigrams
     ngrams(3)
   end
+  # --- end of N-grams methods ---
 
 end
