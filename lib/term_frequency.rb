@@ -1,11 +1,11 @@
-#vim :e test/test_term_frequency/test_term_frequency.rb
+# encoding: utf-8
 
-class TFHash
 # @tfh is the term-frequency hash, accessed with []
 # @length and @max are the number of unique words and maximum
 # frequency
-  # some aliases:
+class TFHash
   attr_accessor :length, :max, :skip_words
+
   # Constructors
   # a term-frequency hash can be constructed with
   # self.from_file
@@ -14,7 +14,7 @@ class TFHash
   #
   # Every constructor channels the data throught
   # file > string > array and ultimatly add_array is called
-  def initialize(skip_words = [" ", ".", ",", "\n"])
+  def initialize(skip_words = [' ', '.', ',', "\n"])
     @length = 0
     @max = 0
     # The default frequency is 0
@@ -23,22 +23,31 @@ class TFHash
     @skip_words = skip_words
     @skip_words_r = regexpify(@skip_words)
   end
+
   def self.from_file(filepath)
     obj = self.new
+
     obj.add_file(filepath)
-    obj 
+
+    obj
   end
+
   def self.from_string(string)
     obj = self.new
+
     obj.add_string(string)
-    obj 
+
+    obj
   end
+
   def self.from_array(array)
     obj = self.new
+
     obj.add_array(array)
-    obj 
+
+    obj
   end
-    
+
   # Getters and setters
   def [](term)
     # Access the frequency hash like any other hash
@@ -60,90 +69,93 @@ class TFHash
     @tfh.keys
   end
 
+  # TODO: test
+  # Binary frequency
   def exists?(term)
-    # Binary frequency
-    #TODO: test
-    return @tfh[term] != 0
+    @tfh[term] != 0
   end
 
+  # TODO: test
+  # Normalize so that a 0 frequency matches with a 0 log
+  # frequency
   def log_frequency(term)
-    # TODO: test
-    # Normalize so that a 0 frequency matches with a 0 log
-    # frequency
-    return log(@tfh[term] + 1)
+    Math.log(@tfh[term] + 1)
   end
 
-  def knorm_frequency(term, k=0.5)
-    # TODO: test
-    return k + k*(@tfh[term] / @max.to_f)
+  # TODO: test
+  def knorm_frequency(term, k = 0.5)
+    k + k * (@tfh[term] / @max.to_f)
   end
 
-  def add_array(array)
   # Merge an array of words in the Hash
-    raise ArgumentError, "The argument needs to be an Array" if array.class != Array
+  def add_array(array)
+    raise ArgumentError, 'The argument needs to be an Array' if array.is_a?(Array)
+
     array.each do |word|
-      next unless word != ""
-      @length += 1   if @tfh[word.to_s]  == 0
-      @max += 1      if @tfh[word.to_s]  == @max
-      @tfh[word.to_s] =  (@tfh[word.to_s] += 1)
+      next if word.strip.empty?
+
+      @length += 1 if @tfh[word.to_s] == 0
+      @max += 1 if @tfh[word.to_s] == @max
+
+      @tfh[word.to_s] += 1
     end
     self
   end
 
-  def add_string(text)
   # Merge a string in the Hash
   # The regex should be an instance variable, that can be
   # constructed from array
-    raise ArgumentError, "The argument needs to be a string" if text.class != String
+  def add_string(text)
+    raise ArgumentError, 'The argument needs to be a String' unless text.is_a?(String)
+
     self.add_array(text.split(@skip_words_r))
   end
 
-  def add_file(filepath)
   # Merge a string in the Hash
-    raise ArgumentError, "The argument needs to be a string" if filepath.class != String
-    begin
-      File.foreach(filepath) { |line|  
-        self.add_string(line)
-      }
-    rescue Exception
-      STDERR.puts "Failed to open \"#{filepath}\""
-      raise
-    ensure
+  def add_file(filepath)
+    raise ArgumentError, 'The argument needs to be a String' unless filepath.is_a?(String)
+
+    File.foreach(filepath) do |line|
+      self.add_string(line)
     end
+
     self
+  rescue StandardError
+    STDERR.puts "Failed to open \"#{filepath}\""
+    raise
   end
 
-  def reset
   # Resetting the hash
+  def reset
     @tfh = Hash.new(0)
     @length = 0
     @max = 0
   end
 
-private
+  private
 
   def regexpify(array)
     # Transforms the array of words into a regexp matching
     # any of the words
     temp = []
     escape = ['.', '/', '*', '^', '$'] # TODO: needs to be more exhaustive
-    unless array.length > 0
-      return Regexp.new(' ') # Matches space
-    end
+    return Regexp.new(' ') if array.empty?
+
     array.each do |w|
-      w = "\\" + w if escape.include?(w)
-      temp << w
+      temp << (escape.include?(w) ? "\\#{w}" : w)
     end
-    return Regexp.new(temp.join('|'))
+
+    Regexp.new(temp.join('|'))
   end
-    
+
   def merge(other_tfh)
     array_to_add = []
     other_tfh.tfh.each do |token, count|
-      @count.times do
-        array_to_add << token 
+      count.times do
+        array_to_add << token
       end
     end
+
     self.add_array(array_to_add)
   end
 end
