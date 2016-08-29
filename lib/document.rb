@@ -1,5 +1,3 @@
-# encoding: utf-8
-
 require_relative 'term_frequency'
 
 # Represent a unit of text. Many documents can form a corpus,

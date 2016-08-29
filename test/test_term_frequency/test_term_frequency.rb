@@ -33,15 +33,20 @@ class TestTFHash < Minitest::Test
 
   def test_TF_constructors_returns_proper_hash
     assert_equal  TFHash.new().length,                       0
+    
     assert_equal  TFHash.from_array(@data4).length,          2
     assert_equal  TFHash.from_array(@data4).max,             2
+
     assert_equal  TFHash.from_string(@string_data5).length,  2
     assert_equal  TFHash.from_string(@string_data5).max,     2
+
     assert_equal  TFHash.from_file(@file_data2).length,      18
     assert_equal  TFHash.from_file(@file_data2).max,         2
   end
+
   def test_add_array_fills_tfh
     my_TFH = TFHash.new()
+
     assert_equal my_TFH.add_array(@data2).length,  1
     assert_equal my_TFH.max,                       1
     assert_equal my_TFH.add_array(@data2).length,  1
@@ -53,13 +58,17 @@ class TestTFHash < Minitest::Test
     assert_equal my_TFH.add_array(@data5).length,  2
     assert_equal my_TFH.max,                       3
   end
+  
   def test_add_file_fills_tfh
     my_TFH = TFHash.new([" ", ".", ",", "\n"])
+
     assert_equal my_TFH.add_file(@file_data2).length,  18
     assert_equal my_TFH.max,                           2
   end
+
   def test_add_string_fills_tfh
     my_TFH = TFHash.new([" ", ".", ",", "\n"])
+
     assert_equal my_TFH.add_string(@string_data1).length,  0
     assert_equal my_TFH.max,                               0
     assert_equal my_TFH.add_string(@string_data2).length,  1
@@ -69,29 +78,53 @@ class TestTFHash < Minitest::Test
     assert_equal my_TFH.add_string(@string_data4).length,  2
     assert_equal my_TFH.max,                               3
   end
+
   def test_hash_bracket_access
-    assert_equal TFHash.from_file(@file_data2)["the"],  2
+    my_TFH = TFHash.from_file(@file_data2)
+    assert_equal my_TFH["the"], 2
   end
+
   def test_invalid_argument_raises_argument_exception
     assert_raises  ArgumentError do
       TFHash.from_array("string")
     end
+
     assert_raises  ArgumentError do
       TFHash.from_string(["some", "array"])
     end
+
     assert_raises  ArgumentError do
       TFHash.from_file(["some", "array"])
     end
   end
+
   def test_wrong_filenames_are_caught
     assert_raises Errno::ENOENT do
       TFHash.from_file("filename")
     end
   end
+
   def test_no_argument_raises_argument_exception
   # It is normally handled by default
     assert_raises ArgumentError do
       TFHash.from_array()
     end
+  end
+
+  def test_binary_frequencies
+    my_TFH = TFHash.from_file(@file_data2)
+    assert_equal my_TFH.exists?("the"), true
+    assert_equal my_TFH.exists?("rongeur"), false
+  end
+
+  def test_log_frequencies
+    my_TFH = TFHash.from_file(@file_data2)
+    assert_equal my_TFH.log_frequency("the"), Math.log(3)
+    assert_equal my_TFH.log_frequency("rongeur"), 0
+  end
+
+  def test_knorm_frequencies
+    my_TFH = TFHash.from_file(@file_data2)
+    assert_equal my_TFH.knorm_frequency("rongeur", 0.5), 0.5
   end
 end

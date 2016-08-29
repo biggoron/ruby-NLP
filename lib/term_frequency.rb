@@ -14,17 +14,21 @@ class TFHash
   #
   # Every constructor channels the data throught
   # file > string > array and ultimatly add_array is called
-  def initialize(skip_words = [' ', '.', ',', "\n"])
+  def initialize(skip_words = [' ', ',', '.', "\n", "\r"])
+  #temp tested
     @length = 0
     @max = 0
+
     # The default frequency is 0
     @tfh = Hash.new(0)
+
     # Unrelevant words, punctuation etc...
     @skip_words = skip_words
     @skip_words_r = regexpify(@skip_words)
   end
 
   def self.from_file(filepath)
+  #temp tested
     obj = self.new
 
     obj.add_file(filepath)
@@ -33,6 +37,7 @@ class TFHash
   end
 
   def self.from_string(string)
+  #temp tested
     obj = self.new
 
     obj.add_string(string)
@@ -41,6 +46,7 @@ class TFHash
   end
 
   def self.from_array(array)
+  #temp tested
     obj = self.new
 
     obj.add_array(array)
@@ -50,40 +56,35 @@ class TFHash
 
   # Getters and setters
   def [](term)
+  #temp tested
     # Access the frequency hash like any other hash
     # However, the hash being internal, usual operations on
     # hash won't work. To modify the hash, you should go
     # throught the instance method: add_array, add_string,
     # add_file.
-    # TODO: test the block part
-    if block_given?
-      # Accepts a bloc to process the frequency, passing it
-      # the raw frequency and the max frequency
-      yield @tfh[term], @max
-    else
-      @tfh[term]
-    end
+    @tfh[term]
   end
 
   def words
+  #temp tested
     @tfh.keys
   end
 
-  # TODO: test
   # Binary frequency
+  #temp tested
   def exists?(term)
     @tfh[term] != 0
   end
 
-  # TODO: test
   # Normalize so that a 0 frequency matches with a 0 log
   # frequency
   def log_frequency(term)
+  #temp tested
     Math.log(@tfh[term] + 1)
   end
 
-  # TODO: test
   def knorm_frequency(term, k = 0.5)
+  #temp tested
     k + k * (@tfh[term] / @max.to_f)
   end
 
@@ -135,10 +136,12 @@ class TFHash
   private
 
   def regexpify(array)
+  # TODO: test
+
     # Transforms the array of words into a regexp matching
     # any of the words
     temp = []
-    escape = ['.', '/', '*', '^', '$'] # TODO: needs to be more exhaustive
+    escape = '.|[](){}+\/?*^$'.split('')
     return Regexp.new(' ') if array.empty?
 
     array.each do |w|
@@ -149,6 +152,8 @@ class TFHash
   end
 
   def merge(other_tfh)
+  # TODO: test
+
     array_to_add = []
     other_tfh.tfh.each do |token, count|
       count.times do
