@@ -89,7 +89,7 @@ class TFHash
 
   # Merge an array of words in the Hash
   def add_array(array)
-    raise ArgumentError, 'The argument needs to be an Array' if array.is_a?(Array)
+    raise ArgumentError, 'The argument needs to be an Array' unless array.is_a?(Array)
 
     array.each do |word|
       next if word.strip.empty?

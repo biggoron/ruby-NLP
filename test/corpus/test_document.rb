@@ -65,11 +65,11 @@ class TestDocument < Minitest::Test
     end
   end
 
-  def test_add_skip_word_behaves_correctly
+  def test_add_stop_word_behaves_correctly
     assert_raises ArgumentError do
-      @my_doc.skip_words = ("some string")
+      @my_doc.stop_words = ("some string")
     end
-    @my_doc.skip_words = [".", ",", " "]
+    @my_doc.stop_words = [".", ",", " "]
     @my_doc.add_string("one, two; three.")
     assert_equal @my_doc.source, ["one", "two;", "three"]
 
@@ -81,7 +81,7 @@ class TestDocument < Minitest::Test
     assert_equal tfh["one"], 1
     assert_equal tfh["two;"], 1
 
-    @my_doc.add_skip_word(";")
+    @my_doc.add_stop_word(";")
     @my_doc.update_tfh
     tfh = @my_doc.tfh
     assert_equal tfh["one"], 1
