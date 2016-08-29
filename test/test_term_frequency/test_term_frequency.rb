@@ -1,7 +1,3 @@
-#vim :e lib/term_frequency.rb
-#vim :!rake test > log/bash_output.txt
-#vim :vsp log/bash_output.txt
-
 require 'minitest/autorun'
 require './lib/term_frequency'
 
@@ -14,25 +10,25 @@ class TestTFHash < Minitest::Test
     @data5        = ['']
     @data6        = [333, 'double']
 
-    @string_data1 = ""
-    @string_data2 = "simple"
-    @string_data3 = "simple double"
-    @string_data4 = "simple, double"
-    @string_data5 = "simple, double. simple"
+    @string_data1 = ''
+    @string_data2 = 'simple'
+    @string_data3 = 'simple double'
+    @string_data4 = 'simple, double'
+    @string_data5 = 'simple, double. simple'
 
-    @file_data1   = "./data/no_text"
-    @file_data2   = "./data/simple_text"
+    @file_data1   = './data/no_text'
+    @file_data2   = './data/simple_text'
   end
 
-  def test_TF_constructors_returns_tf_object
-    assert_equal TFHash.new().class.name,                   'TFHash'
+  def test_tf_constructors_returns_tf_object
+    assert_equal TFHash.new.class.name,                     'TFHash'
     assert_equal TFHash.from_array(@data1).class.name,      'TFHash'
     assert_equal TFHash.from_string('test').class.name,     'TFHash'
     assert_equal TFHash.from_file(@file_data1).class.name,  'TFHash'
   end
 
-  def test_TF_constructors_returns_proper_hash
-    assert_equal  TFHash.new().length,                       0
+  def test_tf_constructors_returns_proper_hash
+    assert_equal  TFHash.new.length,                         0
     
     assert_equal  TFHash.from_array(@data4).length,          2
     assert_equal  TFHash.from_array(@data4).max,             2
@@ -45,7 +41,7 @@ class TestTFHash < Minitest::Test
   end
 
   def test_add_array_fills_tfh
-    my_TFH = TFHash.new()
+    my_TFH = TFHash.new
 
     assert_equal my_TFH.add_array(@data2).length,  1
     assert_equal my_TFH.max,                       1

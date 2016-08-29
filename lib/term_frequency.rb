@@ -15,7 +15,6 @@ class TFHash
   # Every constructor channels the data throught
   # file > string > array and ultimatly add_array is called
   def initialize(skip_words = [' ', ',', '.', "\n", "\r"])
-  #temp tested
     @length = 0
     @max = 0
 
@@ -28,7 +27,6 @@ class TFHash
   end
 
   def self.from_file(filepath)
-  #temp tested
     obj = self.new
 
     obj.add_file(filepath)
@@ -37,7 +35,6 @@ class TFHash
   end
 
   def self.from_string(string)
-  #temp tested
     obj = self.new
 
     obj.add_string(string)
@@ -46,7 +43,6 @@ class TFHash
   end
 
   def self.from_array(array)
-  #temp tested
     obj = self.new
 
     obj.add_array(array)
@@ -56,7 +52,6 @@ class TFHash
 
   # Getters and setters
   def [](term)
-  #temp tested
     # Access the frequency hash like any other hash
     # However, the hash being internal, usual operations on
     # hash won't work. To modify the hash, you should go
@@ -66,25 +61,21 @@ class TFHash
   end
 
   def words
-  #temp tested
     @tfh.keys
   end
 
   # Binary frequency
-  #temp tested
   def exists?(term)
-    @tfh[term] != 0
+    (@tfh[term]).nonzero?
   end
 
   # Normalize so that a 0 frequency matches with a 0 log
   # frequency
   def log_frequency(term)
-  #temp tested
     Math.log(@tfh[term] + 1)
   end
 
   def knorm_frequency(term, k = 0.5)
-  #temp tested
     k + k * (@tfh[term] / @max.to_f)
   end
 
@@ -95,7 +86,7 @@ class TFHash
     array.each do |word|
       next if word.strip.empty?
 
-      @length += 1 if @tfh[word.to_s] == 0
+      @length += 1 if (@tfh[word.to_s]).zero?
       @max += 1 if @tfh[word.to_s] == @max
 
       @tfh[word.to_s] += 1
@@ -136,7 +127,7 @@ class TFHash
   private
 
   def regexpify(array)
-  # TODO: test
+    # TODO: test
 
     # Transforms the array of words into a regexp matching
     # any of the words
@@ -152,7 +143,7 @@ class TFHash
   end
 
   def merge(other_tfh)
-  # TODO: test
+    # TODO: test
 
     array_to_add = []
     other_tfh.tfh.each do |token, count|

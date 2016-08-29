@@ -1,23 +1,23 @@
-namespace :test do |args|
+namespace :test do
   # Run rake test:*task*
-  desc "Triggers the test suite"
+  desc 'Triggers the test suite'
   task :all do
-    exec_test("./test")
+    exec_test('./test')
   end
 
-  desc "Triggers the TF test suite"
+  desc 'Triggers the TF test suite'
   task :TF do
-    exec_test("./test/test_term_frequency/")
+    exec_test('./test/test_term_frequency/')
   end
-  
-  desc "Triggers the documents/corpuses test suite"
+
+  desc 'Triggers the documents/corpuses test suite'
   task :corpus do
-    exec_test("./test/corpus")
+    exec_test('./test/corpus')
   end
 
   def procdir(dir)
     # Takes source files in directory
-    Dir[ File.join(dir, "**", '*') ].reject do |p|
+    Dir[File.join(dir, '**', '*')].reject do |p|
       File.directory? p
     end
   end
