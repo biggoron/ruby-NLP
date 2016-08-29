@@ -1,93 +1,90 @@
+# encoding: utf-8
+
 # Doesn't work yet
 
-class MarkovChain
 # A simplified markov chain implementation to model texts
+class MarkovChain
   attr_accessor :nodes, :current_node
 
-  def initialize(array)
   # The text needs to be preprocessed into an array of words
   # or tokens.
+  def initialize
     @nodes = {}
     @current_node = nil
   end
-  
-# def generate(n, separator = ' ')
-# # TODO: adapt to a multiword node
-#     random_word = @nodes.keys.sample
-#     current_node = @nodes[random_word]
-#   end
-#   string = []
-#   n.times do
-#     # builds a string by getting to the next node and
-#     # appending the corresponding word, n times
-#     # recursively.
-#     string << current_node.word
-#     current_node.next
-#   end
-#   
-#   # readable format. By default words are concatenated with
-#   # spaces
-#   return string.join(separator)
-# end
 
+  # # TODO: adapt to a multiword node
+  # def generate(n, separator = ' ')
+  #     random_word = @nodes.keys.sample
+  #     current_node = @nodes[random_word]
+  #   end
+  #   string = []
+  #   n.times do
+  #     # builds a string by getting to the next node and
+  #     # appending the corresponding word, n times
+  #     # recursively.
+  #     string << current_node.word
+  #     current_node.next
+  #   end
+  #
+  #   # readable format. By default words are concatenated with
+  #   # spaces
+  #   return string.join(separator)
+  # end
+
+  # TODO: adapt to a multiword node
   def add_node(word)
-  # TODO: adapt to a multiword node
-    if @nodes.key?(word)
-      # Don't add an existing word
-      raise ArgumentError, "A node with word: '#{word}' already exists!"
-      # Enables concatenation of functions by returning self
-      return self
-    else
-      # Each node object is referenced by its corresponding
-      # word. Indexing is efficient.
-      @nodes[word] = (Node.new(word))
-      return self
-    end
+    raise ArgumentError, "A node with word: '#{word}' already exists!" if @nodes.key?(word)
+
+    # Each node object is referenced by its corresponding
+    # word. Indexing is efficient.
+    @nodes[word] = Node.new(word)
+
+    # Enables concatenation of functions by returning self
+    self
   end
+
+  # TODO: adapt to a multiword node
   def remove_node(word)
-  # TODO: adapt to a multiword node
-    if @nodes.key?[word]
-      # Checks if the node exists
-      @nodes[word] = nil
-      return self
-    else
-      raise ArgumentError, "No node with name: '#{word}'"
-      return self
-    end
+    raise ArgumentError, "No node with name: '#{word}'" unless @nodes.key?[word]
+
+    @nodes[word] = nil
+
+    self
   end
+
+  # TODO: adapt to a multiword node
   def add_edge(source, dest, w)
-  # TODO: adapt to a multiword node
-    unless @nodes.key?(source) and @nodes.key?(dest)
-      # Checks if both ends of the edge exist
-      raise ArgumentError, "either the source or destination node was not found"
-      return self
-    end
-    # An edge is caracterized by its destination and its
-    # weight
+    # Checks if both ends of the edge exist
+    raise ArgumentError, 'Source node not found' unless @nodes.key?(source)
+    raise ArgumentError, 'Destination node not found' unless @nodes.key?(dest)
+
+    # An edge is caracterized by its destination and its weight
     @nodes[source].add_edge(dest, w)
-    return self
+
+    self
   end
-  def normalize
+
   # TODO: adapt to a multiword node
+  def normalize
     # Makes the sum of weight from every node sum up to 1
-    @nodes.each do |w, n|
+    @nodes.each do |_, n|
       n.normalize
     end
   end
-  def normalize_node(w)
+
   # TODO: adapt to a multiword node
-    unless @nodes.key?[w]
-      raise ArgumentError, "Node not found"
-      return self
-    end
+  def normalize_node(w)
+    raise ArgumentError, 'Node not found' unless @nodes.key?[w]
+
     @nodes[w].normalize
   end
 
-  def next
   # TODO: Move to Node and adapt to a multiword node
+  def next
     unless @current_node.normalized?
       # Node's transition probabilities need to sum up to 1.
-      puts "node is not normalized"
+      puts 'node is not normalized'
       return self
     end
     prob_hash = {}
@@ -104,73 +101,65 @@ class MarkovChain
     prob_hash.each do |p, n|
       # iterates to find which is the node corresponding to
       # the picked number.
-      if p <= value and rand_number < p
+      if p <= value && rand_number < p
         node = n
-        value = p 
+        value = p
       end
     end
     @current_node = @nodes[node]
-    return self
+    self
   end
 end
 
+# A node contains a word and a list of the following possible nodes.
+# This class is used for the Markov chain text model
 class Node
-  # A node contains a word and a list of the following
-  # possible nodes.
-  # This class is used for the Markov chain text model
   attr_accessor :model_length, :words, :edges
+
   def initialize(words, model_length = words.length)
+    raise ArgumentError, "The model length doesn't match the number of words given" if model_length != words.length
+
     @words = words
-    if model_length != words.length
-      raise ArgumentError, "The model length doesn't match the number of words given"
-    end
     @edges = {}
   end
 
+  # An edge consists of a destination node and a probabilistic weight
   def add_edge(dest, w)
-    # An edge consists of a destination node and a
-    # probabilistic weight
-    if @edges.key?(dest)
-      # Checks if the edge already exists
-      raise ArgumentError, "Edge is already connected"
-      return false
-    elsif not dest.is_a? Node
-      raise ArgumentError, "The first argument of add_edge
-      needs to be a Node. Failed to link #{@words} to
-      destination #{dest}"
-      return false
-    else
-      @edges[dest] = w
-      return self
-    end
+    # Checks if the edge already exists
+    raise ArgumentError, 'Edge is already connected' if @edges.key?(dest)
+    raise ArgumentError, "The first argument of add_edge needs to be a Node. Failed to link #{@words} to destination #{dest}" unless dest.is_a?(Node)
+
+    @edges[dest] = w
+
+    self
   end
 
-  def normalize()
+  def normalize
     # Makes the weights of the edges add up to 1
     sum = 0
-    @edges.each do |e, w|
+    @edges.each do |_, w|
       sum += w
     end
+
     @edges.each do |e, w|
-      @edges[e] = w / (sum.to_f)
+      @edges[e] = w / sum.to_f
     end
   end
 
-  def normalized?()
+  def normalized?
     # Checks if the weights of the edges add up to 1
     sum = 0.0
-    @edges.each do |e, w|
+    @edges.each do |_, w|
       sum += w
     end
+
     sum > 0.999999999
   end
 
   def next
-    unless self.normalized?
-      # Node's transition probabilities need to sum up to 1.
-      raise StandartError, "The transition probabilities of the node #{@words} need to sum up to one"
-      return self
-    end
+    # Node's transition probabilities need to sum up to 1.
+    raise StandartError, "The transition probabilities of the node #{@words} need to sum up to one" unless self.normalized?
+
     prob_hash = {}
     self.edges.inject(0) do |total, (n, w)|
       # Divides the segment from 0 to 1 according to the
@@ -178,6 +167,7 @@ class Node
       prob_hash[total + w] = n
       total + w
     end
+
     # Picks a random number between 0 and 1
     rand_number = rand
     node = nil
@@ -185,12 +175,12 @@ class Node
     prob_hash.each do |p, n|
       # iterates to find which is the node corresponding to
       # the picked number.
-      if p <= value and rand_number < p
+      if p <= value && rand_number < p
         node = n
-        value = p 
+        value = p
       end
     end
-    return node
+
+    node
   end
 end
-
