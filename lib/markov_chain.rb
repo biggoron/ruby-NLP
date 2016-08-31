@@ -63,8 +63,8 @@ class Node
 
   def initialize(words)
     raise ArgumentError, "The model length doesn't match the number of words given"  if model_length != words.length
-    raise ArgumentError, 'First argument needs to be a string or an array'           unless words.is_a?(String) or words.is_a?(Array)
-    raise ArgumentError, "Can't handle length-1 array, please use string"            if words.is_a?(Array) and words.length == 1
+    raise ArgumentError, 'First argument needs to be a string or an array'           unless words.is_a?(String) || words.is_a?(Array)
+    raise ArgumentError, "Can't handle length-1 array, please use string"            if words.is_a?(Array) && words.length == 1
 
     @words = words
     @model_length = words.is_a?(String) ? 1 : words.length
@@ -83,7 +83,7 @@ class Node
   end
 
   def same_as?(another_node)
-    raise ArgumentError, "Same_as takes a Node as an Argument" unless another_node.is_a?(Node)
+    raise ArgumentError, 'Same_as takes a Node as an Argument' unless another_node.is_a?(Node)
 
     # First check if the node has the same kind of information
     return false if another_node.model_length != @model_length
@@ -96,7 +96,7 @@ class Node
       end
     end
     # If the program get here, the two words array have same length and same items
-    return true
+    true
   end
 
   def normalize
