@@ -12,9 +12,14 @@ class BPlusTree
     def root?
       return @root
     end
-    def add_bucket(key, b)
-      extra_node = @indexes[get_index(key)].add_bucket(key, b)
+    def add_entry(key, b, value = nil)
+      # Calling a child to add a bucket may result in splitting it.
+      # The extra node needs to be referenced in the current node
+      extra_node = @indexes[get_index(key)].add_bucket(key, b, value)
       if extra_node
+        # Adding the extra node may result in overpassing the limit node number
+        # If so, the node is split in two and the second half is handed to the parent
+        # to be indexed
         new_extra_node = insert(extra_node) 
         return new_extra_node
       else
@@ -83,12 +88,18 @@ class BPlusTree
     def leaf?
       return true
     end
-    def add_bucket(key, b)
-      return nil if @values.include?(key)
+    def add_entry(key, b, value = nil)
+      if @values.include?(key)
+        index = @values.index(key)
+        @indexes[index] = [] unless @indexes[index]
+        @indexes[index] << value if value
+        return nil
+      end
        
       index = get_index(key)
       @values.insert(key, index)
-      @indexes.insert(nil, index)
+      @indexes.insert([], index)
+      @indexes[index] << value if value
 
       if @values.length >= b
         _m = (b+1)/2
@@ -109,6 +120,8 @@ class BPlusTree
     end
   end
 
+  # ------------
+  # Now that nodes are defined, lets focus on the tree's methods
   attr_reader :root, :branching_factor
 
   def initialize(b)
@@ -120,10 +133,12 @@ class BPlusTree
   end
 
   def add_bucket(key)
-    @root.add_bucket(key, @branching_factor)
+    @root.add_entry(key, @branching_factor, nil)
+    return self
   end
 
   def add_entry(key, value)
+    @root.add_entry(key, @branching_factor, value)
   end
 
   def remove_bucket(key)
