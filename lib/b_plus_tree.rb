@@ -1,149 +1,189 @@
 class BPlusTree
+  attr_reader :root
+
   class BPlusNode
-    attr_reader :values, :indexes, :root
-    def initialize(values = [], indexes = [], root = nil)
-      @values  = values  
-      @indexes = indexes 
-      @root = (root = :root)? true : false
-    end
-    def leaf?
-      return false
-    end
-    def root?
-      return @root
-    end
-    def add_entry(key, b, value = nil)
-      # Calling a child to add a bucket may result in splitting it.
-      # The extra node needs to be referenced in the current node
-      extra_node = @indexes[get_index(key)].add_bucket(key, b, value)
-      if extra_node
-        # Adding the extra node may result in overpassing the limit node number
-        # If so, the node is split in two and the second half is handed to the parent
-        # to be indexed
-        new_extra_node = insert(extra_node) 
-        return new_extra_node
+    attr_reader :keys, :children, :parent, :branching_factor
+    def initialize(b, keys = [], children = [], parent = nil)
+      @branching_factor = b
+      @keys = keys
+      @children = children
+      @parent = parent
+      @max_branching = b - 1
+
+      # One can insert values only from the top of the tree
+      if root?
+        self.class_eval{public :insert}
       else
-        return nil
+        self.class_eval{private :insert}
       end
     end
 
-  private
-    def insert(node)
-      value = node.values[0]
-      index = get_index(value) 
-      @values.insert(value, index)
-      @indexes.insert(node, index + 1)
-      if @values.length >= b
-        _m = (b+1)/2
-        extra_node = BPlusNode.new(@values[_m..-1], @indexes[_m..-1])
-        @values = @values[0..._m]
-        @indexes = @indexes[0..._m]
-        if @root
-          @root = false
-          new_root = BPlusNode.new([extra_node.values[0]], [self, extra_node], :root)
-          return new_root
-        else
-          return extra_node
-        end
+    def leaf?
+      return self.is_a?(BPlusLeaf) ? true : false
+    end
+
+    def root?
+      # A node is root <=> a node has no parent
+      return (not parent)
+    end
+
+    protected
+    def insert(k, v)
+      # Top down approach, the insert request trickles down
+      # Get the index of the children which range includes k
+      index = get_index(k)
+      # Make the child insert the entry
+      @children[index].insert(k, value)
+    end
+    
+    def add_entry(k, v)
+      # Top up approach, insert an entry in the node and
+      # request the parent to modify itself if a node
+      # splitting occurs
+      # The split lets the new node at the right of the old
+      # one.
+      index = get_index(k)
+      @keys.insert(k, index)
+
+      # TODO: Put in a separate method
+      if self.is_a?(BPlusLeaf)
+        @children[k] << v
       else
-        return nil
+        @children.insert(v, index + 1)
+      end
+
+      # If the k becomes the first key, update the parent
+      @parent.change_key(0, k) if index == 0
+
+      # If the node becomes to big, split in half and require
+      # the parent to add the right node as a new node
+      if @keys.length > @max_branching
+        mid = @keys.length / 2
+
+        # TODO: Put in a separate method
+        if self.is_a?(BPlusLeaf)
+          r = mid..(@keys.length - 1)
+        else
+          r = (mid + 1)..(@keys.length - 1)
+        end
+
+        extra_key = @keys[mid]
+        extra_node = BPlusNode.new(@branching_factor, @keys[r], @children[r])
+
+        # Tell the children of the new node their true father 
+        extra_node.i_am_your_father!()
+        
+        # Update the old node
+        @keys = @keys[0...mid]
+        @children = @children[0...mid]
+
+        # There is no parent to call if the current node is
+        # root
+        if root?
+          build_new_root(extra_key, extra_node) 
+        else
+          # Ask the parent to register the new node
+          @parent.add_entry(extra_key, extra_node)
+        end
+        # Return
+        nil
       end
     end
-    def get_index(key, _beg = 0, _end = @values.length - 1)
-    # Dichotomic search for the child node containing the given key
-      b_value = @values[_beg] # lower bound of the search
-      e_value = @values[_end] # upper bound of the search
+
+    def set_parent(node)
+      @parent = node
+    end
+
+    private
+
+    def i_am_your_father!
+      @children.each{|child| child.set_parent(self)}
+    end
+
+    def build_new_root(extra_key, extra_node)
+      keys = [extra_key]
+      children = [self, extra_node]
+      @parent = BPlusNode.new(@branching_factor, keys, children)
+    end
       
-      result = case b_value <=> key
-        when -1 then # the key is higher than the lower bound
-          case e_value <=> key
-            when 1 then # the key is smaller than the upper bound
-              _mid = (_beg + _end)/2
-              return _beg if _mid = _beg
-              m_value = @values[_mid]
-              case m_value <=> key # dichotomic search
+    def get_index(key,_beg = 0, end = @keys.length - 1)
+      # If the Node if empty, the first index to be assigned
+      # is 0.
+      return 0 if @keys.empty? 
+
+      # Else, perform dichotomic search to find the child
+      # node which contains the given key
+      beg_value = @keys[_beg]
+      end_value = @keys[_end]
+
+      result = case beg_value <=> key
+        when -1 then
+          # The key is higher than the lower bound
+          case end_value <=> key
+            when 1 then
+              # The key is smaller than the upper bound
+              _mid = (_beg + _end) / 2
+              return _beg if _mid == _beg
+              mid_value = @keys[_mid]
+              case mid_value <=> key
+                # Recursive dichotomic search
                 when -1 then get_index(key, _mid, _end)
-                when 1  then get_index(key, _beg, _mid)
-                when 0  then _mid
+                when  1 then get_index(key, _beg, _mid)
+                when  0 then _mid
               end
-            else # the key is higher than the upper bound
-              _end + 1
+            else
+              return _end + 1
           end
-        else # the key is smaller than the lower bound
-          _beg
+        when 0 then
+          return _beg + 1
+        else
+          return _beg
       end
-      return result
     end
   end
 
   class BPlusLeaf < BPlusNode
-    attr_reader :next, :prev
-    def initialize(values = [], indexes = [], root, prev = nil, nxt = nil)
-      super
-      @next     = nxt
-      @prev     = prev
-      @previous = nil
-      @root = (root == :root)? true : false
+    attr_reader :next_leaf, :prev_leaf
+    def initialize(b, keys = [], children = [], parent = nil, next_leaf = nil, prev_leaf = nil)
+      @branching_factor = b
+      @keys = keys
+      @children = children
+      @parent = parent
+      @max_branching = b - 1
+      @next_leaf = next_leaf
+      @prev_leaf = prev_leaf
     end
-    def leaf?
-      return true
-    end
-    def add_entry(key, b, value = nil)
-      if @values.include?(key)
-        index = @values.index(key)
-        @indexes[index] = [] unless @indexes[index]
-        @indexes[index] << value if value
-        return nil
-      end
-       
-      index = get_index(key)
-      @values.insert(key, index)
-      @indexes.insert([], index)
-      @indexes[index] << value if value
 
-      if @values.length >= b
-        _m = (b+1)/2
-        extra_node = BPlusLeaf.new(@values[_m..-1], @indexes[_m..-1], :not_root, self, self.next)
-        @next = extra_node
-        @values = @values[0..._m]
-        @indexes = @indexes[0..._m]
-        if @root
-          @root = false
-          new_root = BPlusNode.new([extra_node.values[0]], [self, extra_node], :root)
-          return new_root
-        else
-          return extra_node
-        end
-      else
+    protected
+
+    def insert(k, v)
+      if @keys.include?(k)
+        index = @keys.index(k)
+        @children[index] << v
         return nil
+      else
+        add_entry(k, v)
       end
+    end
+
+    def add_entry(k, v)
+      # TODO: meme chose en rajoutant next, prev
     end
   end
-
-  # ------------
-  # Now that nodes are defined, lets focus on the tree's methods
-  attr_reader :root, :branching_factor
 
   def initialize(b)
-    @root = BPlusLeaf.new([], [], :root)
-    @branching_factor = b
+    @root = BPlusLeaf.new(b, [], [], nil)
   end
 
-  def self.bulk_load(entries)
-  end
-
-  def add_bucket(key)
-    @root.add_entry(key, @branching_factor, nil)
-    return self
+  def self.bulk_load(entries, b)
+    # TODO: bottom up only
   end
 
   def add_entry(key, value)
-    @root.add_entry(key, @branching_factor, value)
+    @root.insert(key, value)
+    @root = @root.parent if @root.parent
   end
 
-  def remove_bucket(key)
-  end
-
-  def remove_entry(key, value)
+  def remove_entry
   end
 end
