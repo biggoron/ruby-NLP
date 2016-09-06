@@ -35,6 +35,7 @@ class BPlusTree
       # Make the child insert the entry
       @children[index].insert(k, value)
     end
+
     
     def add_entry(k, v)
       # Top up approach, insert an entry in the node and
@@ -45,12 +46,9 @@ class BPlusTree
       index = get_index(k)
       @keys.insert(k, index)
 
-      # TODO: Put in a separate method
-      if self.is_a?(BPlusLeaf)
-        @children[k] << v
-      else
-        @children.insert(v, index + 1)
-      end
+      # The insertion of the value is performed differently
+      # in a leaf than in a usual node
+      insert_value(index, v)
 
       # If the k becomes the first key, update the parent
       @parent.change_key(0, k) if index == 0
@@ -60,12 +58,8 @@ class BPlusTree
       if @keys.length > @max_branching
         mid = @keys.length / 2
 
-        # TODO: Put in a separate method
-        if self.is_a?(BPlusLeaf)
-          r = mid..(@keys.length - 1)
-        else
-          r = (mid + 1)..(@keys.length - 1)
-        end
+        # The range is different if the node is a leaf
+        r = extra_node_range
 
         extra_key = @keys[mid]
         extra_node = BPlusNode.new(@branching_factor, @keys[r], @children[r])
@@ -95,6 +89,13 @@ class BPlusTree
     end
 
     private
+    def extra_node_range
+      return ((@max_branching + 3) / 2)..@max_branching
+    end
+
+    def insert_value(index, v)
+      @children.insert(v, index + 1)
+    end
 
     def i_am_your_father!
       @children.each{|child| child.set_parent(self)}
@@ -166,8 +167,13 @@ class BPlusTree
       end
     end
 
-    def add_entry(k, v)
-      # TODO: meme chose en rajoutant next, prev
+    private
+    def extra_node_range
+      return ((@max_branching + 1) / 2)..@max_branching
+    end
+
+    def insert_value(index, v)
+      @children[index] << v
     end
   end
 
