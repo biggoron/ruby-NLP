@@ -155,6 +155,33 @@ class BPlusTree
       @prev_leaf = prev_leaf
     end
 
+    def bulk_add(entries)
+      mem = nil
+      mem_index = 0
+      entries.each_with_index do |k, v, i|
+        if @values.length == @branching_factor
+          next_node = BPlusLeaf.new(b, [], [], nil, nil, self)
+          @next_node = next_node
+          if root?
+            build_new_root(k, next_node) 
+          else
+            # Ask the parent to register the new node
+            @parent.add_entry(k, next_node)
+          end
+          next_node.bulk_load(entries[i..-1])
+        end
+        (no_change = (k == mem)) if mem
+        unless no_change
+          @values << k
+          @children << [v]
+          mem == k
+          mem_index += 1
+        else
+          @children[mem_index] << v
+        end
+      end 
+    end
+
     protected
 
     def insert(k, v)
@@ -182,11 +209,15 @@ class BPlusTree
   end
 
   def self.bulk_load(entries, b)
-    # TODO: bottom up only
+    obj = self.new(b)
+    entries.sort!{|k,v| k} 
+    @root.bulk_add(entries)
   end
 
   def add_entry(key, value)
     @root.insert(key, value)
+    # Inserting a value may trigger a fork at the top of the
+    # tree, resulting in a new root
     @root = @root.parent if @root.parent
   end
 
