@@ -57,6 +57,12 @@ class BPlusTree
       # object
     end
 
+    def remove(k, v)
+      # Similarily to insert the request is handed down the tree
+      index = get_index(k)
+      @children[index].remove(k, v)
+    end
+
     def add_entry(k, v)
       # Bottom up approach, insert an entry in the node and
       # request the parent to modify itself if a node
@@ -79,10 +85,137 @@ class BPlusTree
       split_node if @keys.length > @max_branching
     end
 
+    def remove_entry(k, v)
+      index = @keys.index(k)
+      # simple deletion
+      @keys.delete_at(index)
+      @values.delete_at(index + 1)
+
+      unless root?
+      # The root is quite free, it can be depleted until
+      # there is only one child. Then if the root becomes
+      # useless with only one child, the
+      # :set_lone_child_as_root method is called to discard
+      # the old root and return its child.
+        if @keys.length < @max_branching / 2
+          # The node falls below half-full. First try to take
+          # values from neighours with borrow_value. If nothing can
+          # be borrowed the node tries to merge
+          result = borrow_value
+          merge(result) if result
+        end
+      end
+    end
+
+    def borrow_value
+      pos_in_parent = @parent.get_index(@keys[0]) 
+      last_one = (pos_in_parent == @parent.keys.length)
+      unless last_one
+        borrow_right 
+      else
+        borrow_left
+      end
+    end
+
+    def borrow_right
+      pos_in_parent = @parent.get_index(@keys[0]) 
+      neighbour = @parent.children[pos_in_parent + 1]
+      unless neighbour.keys.length <= (@max_branching / 2)
+        borrowed_key = @parent.keys[pos_in_parent + 1]
+        borrowed_child = neighbour.children[0]
+        add_entry(borrowed_key, borrowed_child)
+        neighbour.abandon_first_child
+        return :right
+      else
+        return nil
+      end
+    end
+
+    def borrow_left
+      pos_in_parent = @parent.get_index(@keys[0]) 
+      neighbour = @parent.children[pos_in_parent - 1]
+      unless neighbour.keys.length <= (@max_branching / 2)
+        borrowed_key = @parent.keys[pos_in_parent]
+        borrowed_child = neighbour.children[0]
+        add_entry(borrowed_key, borrowed_child)
+        neighbour.abandon_last_child
+        return :left
+      else
+        return nil
+      end
+    end
+
+    def abandon_last_child
+      @parent.keys[get_index(@keys[0])] = @keys[-1]
+      @keys = @keys[0...-1]
+      @children = @children[0...-1]
+    end
+
+    def abandon_first_child
+      @parent.keys[get_index(@keys[0]) - 1] = @keys[0]
+      @keys.shift
+      @children.shift
+    end
+
+    def merge(direction)
+      pos_in_parent = @parent.get_index(@keys[0]) 
+      if direction == :left
+        neighbour = @parent.children[pos_in_parent - 1]
+        neighbour.merge(:right)
+      elsif direction == :right
+        neighbour = @parent.children[pos_in_parent + 1]
+        dumped_key = @parent.get_index(neighbour.keys[0]) - 1
+        @keys << dumped_key
+        @keys << neighbour.keys
+        @children << neighbour.children
+        @parent.remove_entry(dumped_key, neighbour)
+      end
+    end
+
+    def set_lone_child_as_root
+      @children[0].set_parent(nil)
+      return @children[0]
+    end
+
     def i_am_your_father!
       # Tell the node to signal to its children it is their
       # father. Necessary when some children are relocated
       @children.each{|child| child.set_parent(self)}
+    end
+
+    def get_index(key,_beg = 0, _end = @keys.length - 1)
+      # If the Node is empty, the first index to be assigned
+      # is 0.
+      return 0 if @keys.empty? 
+
+      # Else, perform dichotomic search to find the child
+      # node which contains the given key
+      beg_value = @keys[_beg]
+      end_value = @keys[_end]
+
+      result = case beg_value <=> key
+        when -1 then
+          # The key is higher than the lower bound
+          case end_value <=> key
+            when 1 then
+              # The key is smaller than the upper bound
+              _mid = (_beg + _end) / 2
+              return _beg if _mid == _beg
+              mid_value = @keys[_mid]
+              case mid_value <=> key
+                # Recursive dichotomic search
+                when -1 then get_index(key, _mid, _end)
+                when  1 then get_index(key, _beg, _mid)
+                when  0 then _mid
+              end
+            else
+              return _end + 1
+          end
+        when 0 then
+          return _beg + 1
+        else
+          return _beg
+      end
     end
       
   protected
@@ -162,40 +295,6 @@ class BPlusTree
       i_am_your_father!
     end
 
-    def get_index(key,_beg = 0, _end = @keys.length - 1)
-      # If the Node is empty, the first index to be assigned
-      # is 0.
-      return 0 if @keys.empty? 
-
-      # Else, perform dichotomic search to find the child
-      # node which contains the given key
-      beg_value = @keys[_beg]
-      end_value = @keys[_end]
-
-      result = case beg_value <=> key
-        when -1 then
-          # The key is higher than the lower bound
-          case end_value <=> key
-            when 1 then
-              # The key is smaller than the upper bound
-              _mid = (_beg + _end) / 2
-              return _beg if _mid == _beg
-              mid_value = @keys[_mid]
-              case mid_value <=> key
-                # Recursive dichotomic search
-                when -1 then get_index(key, _mid, _end)
-                when  1 then get_index(key, _beg, _mid)
-                when  0 then _mid
-              end
-            else
-              return _end + 1
-          end
-        when 0 then
-          return _beg + 1
-        else
-          return _beg
-      end
-    end
   end
 
   class BPlusLeaf < BPlusNode
@@ -329,7 +428,11 @@ class BPlusTree
     @root = @root.parent if @root.parent
   end
 
-  def remove_entry
+  def remove_entry(key, value)
+    @root.remove(key,value)
+    if @root.keys.empty?
+      @root = @root.set_lone_child_as_root
+    end
   end
 
   def to_s
