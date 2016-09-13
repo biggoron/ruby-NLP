@@ -66,7 +66,7 @@ class TFHash
 
   # Binary frequency
   def exists?(term)
-    (@tfh[term]).nonzero?
+    ! (@tfh[term]).zero?
   end
 
   # Normalize so that a 0 frequency matches with a 0 log
