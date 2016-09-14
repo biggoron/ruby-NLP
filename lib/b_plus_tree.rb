@@ -374,7 +374,7 @@ class BPlusTree
       str = ""
       @children.each_with_index do |c, i|
         str << "[#{@keys[i]}: (#{c.join(', ')})] "
-      }
+      end
       str << "[* parent: #{@parent.keys[0]} *] "  if @parent
       str << "[* next: #{@next_leaf.keys[0]} *] " if @next_leaf
       str << "[* prev: #{@prev_leaf.keys[0]} *] " if @prev_leaf
