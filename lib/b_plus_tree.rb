@@ -466,7 +466,6 @@ class BPlusTree
 
     def next_key(index)
       if index >= @keys.length - 1
-        puts "checking next leaf #{@next_leaf}"
         @next_leaf? @next_leaf.keys[0] : nil
       else
         @keys[index + 1]
@@ -476,18 +475,15 @@ class BPlusTree
     # Access function
 
     def get(k, _end = k)
-      puts "** getting (k: #{k}, _end: #{_end}) **"
       return [] if (!k or _end < k)
       index = get_index(k) - 1
       result = []
-      puts "** index computed: #{index} **"
       if @keys.include?(k)
         result.concat(@children[index])
       end
       unless index == (@keys.length - 1)
         result.concat(get(next_key(index), _end))
       else
-        puts "going to next node"
         result.concat(@next_leaf.get(next_key(index), _end))
       end
       result
