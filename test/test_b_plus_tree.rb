@@ -224,7 +224,7 @@ class TestBPlusTree < Minitest::Test
     assert_equal line2.sub(/^ */, ''), leaves
   end
   
-  def test_integration
+  def test_integration_integer
     @entries << [7, 340]
     @entries << [8, 440]
     @entries << [9, 460]
@@ -262,5 +262,15 @@ class TestBPlusTree < Minitest::Test
     assert_equal get18, [729, 738, 819]
     assert_equal get_r58, [232, 320, 322]
     assert_equal get_r1523, [78, 88, 98, 729, 738, 819, 829]
+  end
+
+  def test_integration_float
+    entries = Array(1..15)
+    entries.collect!{ |v| [Math::tan(v).round(5), v] }
+    my_tree = BPlusTree.bulk_load(entries, 4)
+    my_tree.remove_entry(Math::tan(6).round(5), 6)
+    my_tree.add_entry(Math::tan(8.5).round(5), 8.5)
+    get7 = my_tree.get(Math::tan(7).round(5))
+    assert_equal get7, [7]
   end
 end

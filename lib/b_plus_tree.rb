@@ -1,13 +1,134 @@
-# encoding: utf-8 
+# encoding: utf-8
 
 # B+ Tree implementation
 # Dan Ringwald @ Recast.AI @ Paris
 # contact: dan.ringwald12@gmail.com
 
+# Works with comparacle keys (Integers, Floats, Strings etc...)
+
+# TODO: (items below)
+# Beautify the syntax introducting the .[]d for the tree
+# Support infinite range queries (like "get all elemenents above x")
+
 # -----------------------------------------------------------
 
 class BPlusTree
   attr_accessor :root, :branching_factor
+
+  # Constructors
+
+  def initialize(b)
+    # A void root
+    @root = BPlusLeaf.new(b, keys: [], children: [])
+    @branching_factor = b
+  end
+
+  def self.bulk_load(entries, b)
+    # constructs the tree bottom up from a list of entries
+    obj = self.new(b)
+    entries.sort_by!{ |e| [e[0], e[1]] }
+    obj.root.bulk_add(entries)
+    obj.update_root
+    obj
+  end
+
+  # Stringification
+
+  def to_s
+    # Prints and centers line by line each layer of nodes
+    layers = []
+    # Stores the list of nodes at the current depth of the
+    # tree
+    nodes = [@root]
+    # Keep track of the longest line to center the current
+    # line
+    max_ = 0
+    loop do
+      # Print the layer of nodes at the current depth in the
+      # tree
+      new_layer = print_layer(nodes)
+      # Center the string corresponding to the layer by
+      # padding with spaces
+      unless layers.empty?
+        l = new_layer.length
+        if l < max_
+          new_layer = ' ' * ((max_ - l) / 2) + new_layer
+        elsif l > max_
+          layers.collect! do |layer|
+            ' ' * ((l - max_) / 2) + layer
+          end
+          max_ = l
+        end
+      end
+      layers << new_layer
+
+      # gets the layers at the next depth in the graph
+      nodes.collect!(&:children).flatten!
+      break unless nodes[0].is_a?(BPlusNode)
+    end
+    # prints each layer in the graph as a line
+    layers.join("\n")
+  end
+
+  def inspect
+    # Prints and centers line by line each layer of nodes
+    layers = []
+    # Stores the list of nodes at the current depth of the
+    # tree
+    nodes = [@root]
+    # Keep track of the longest line to center the current
+    # line
+    loop do
+      # Print the layer of nodes at the current depth in the
+      # tree
+      new_layer = inspect_layer(nodes)
+      layers << new_layer
+      # gets the layers at the next depth in the graph
+      nodes.collect(&:children).flatten!
+      break unless nodes[0].is_a?(BPlusNode)
+    end
+    # prints each layer in the graph as a line
+    layers.join("\n---\n")
+  end
+
+  # Actions
+
+  def get(key, end_ = key)
+    @root.get(key, end_).sort
+  end
+
+  def add_entry(key, value)
+    # The insert request is given to the root, trickles down
+    # the tree, is processed by a leaf, and then triggers a
+    # bottom up balancing of the tree
+    @root.insert(key, value)
+    # Inserting a value may trigger a fork at the top of the
+    # tree, resulting in a new root
+    @root = @root.parent if @root.parent
+  end
+
+  def remove_entry(key, value)
+    @root.remove(key, value)
+    @root = @root.set_lone_child_as_root if @root.keys.empty?
+  end
+
+  # Helpers
+
+  def update_root
+    # Resets the root in case it was split up
+    @root = @root.parent while @root.parent
+  end
+
+  def print_layer(nodes)
+    # to get the string for a layer, i concatenate the
+    # strings for each node in the layer.
+    nodes.collect(&:to_s).join(' ')
+  end
+
+  def inspect_layer(nodes)
+    # Inspects the nodes at a given depth
+    nodes.collect(&:inspect).join("\n")
+  end
 
   class BPlusNode
     # Represents a node in the tree. There is two kinds of
@@ -15,21 +136,20 @@ class BPlusTree
     # differently.
     # A Node has keys, indexing some children. For the leaves
     # the children are the values stored in the tree.
-    attr_reader :children, :branching_factor
-    attr_accessor :keys, :parent
-    
-    # Constructors
+    attr_reader :branching_factor
+    attr_accessor :children, :keys, :parent
 
-    def initialize(b, keys = [], children = [], parent = nil)
+    # Constructors
+    def initialize(b, params)
       # The branching factor is the number of children
       # allowed per node.
       @branching_factor = b
-      @keys             = keys
-      @children         = children
-      @parent           = parent
       @max_branching    = b
+      @keys             = params[:keys]
+      @children         = params[:children]
+      @parent           = params[:parent]
     end
-    
+
     # State tests
 
     def root?
@@ -44,15 +164,11 @@ class BPlusTree
     end
 
     # String representations
-    
+
     def to_s
       # A usual node is represented as the sequence of its
       # keys. Leaf nodes override this function
-      unless @keys.empty?
-        '[ ' + @keys.join(' | ') + ' ]'
-      else
-        []
-      end
+      @keys.empty? ? [] : '[ ' + @keys.join(' | ') + ' ]'
     end
 
     def inspect
@@ -60,16 +176,12 @@ class BPlusTree
       # (First element of child 0) [key] (Second element... ) [key] ...
       # Prints the first element of its parent at the end
 
-      str = ""
+      str = ''
       @children.each_with_index do |c, i|
-        if @keys[i]
-          str << "(#{c.keys[0]}) #{@keys[i] }"
-        else
-          str << "(#{c.keys[0]})"
-        end
+        str << @keys[i] ? "(#{c.keys[0]}) #{@keys[i]}" : "(#{c.keys[0]})"
       end
       str <<  " {parent: #{@parent.keys[0]}}" if @parent
-      str <<  " **ROOT" if root?
+      str <<  ' **ROOT' if root?
       str
     end
 
@@ -92,12 +204,12 @@ class BPlusTree
 
     # Actual actions
 
-    def get(k, _end = k)
+    def get(k, end_ = k)
       # Dives in the tree to get the bucket with key k
-      # If _end is specified it looks for all bucket with keys in
-      # range [k, _end]
+      # If end_ is specified it looks for all bucket with keys in
+      # range [k, end_]
       index = get_index(k)
-      @children[index].get(k, _end)
+      @children[index].get(k, end_)
     end
 
     def add_entry(k, v)
@@ -117,25 +229,21 @@ class BPlusTree
       # simple deletion
       delete_value(index, v)
 
-      unless root?
-        # The root is quite free, it can be depleted until
-        # there is only one child. Then if the root becomes
-        # useless with only one child, the
-        # :set_lone_child_as_root method is called to discard
-        # the old root and return its child.
-
-        if @keys.length <= @max_branching / 2
-          # The node falls below half-full. First try to take
-          # values from neighours with borrow_value. If nothing can
-          # be borrowed the node tries to merge
-          result = borrow_value
-          # result = nil     :  No need to merge
-          # result = :right  :  Merge right
-          # result = :left   :  Merge left
-          merge(result) if result
-        end
-      else
-      end
+      # The root is quite free, it can be depleted until
+      # there is only one child. Then if the root becomes
+      # useless with only one child, the
+      # :set_lone_child_as_root method is called to discard
+      # the old root and return its child.
+      too_few_keys = (@keys.length <= @max_branching / 2) && !root?
+      return unless too_few_keys
+      # The node falls below half-full. First try to take
+      # values from neighours with borrow_value. If nothing can
+      # be borrowed the node tries to merge
+      result = borrow_value
+      # result = nil     :  No need to merge
+      # result = :right  :  Merge right
+      # result = :left   :  Merge left
+      merge(result) if result
     end
 
     # Balancing actions
@@ -150,14 +258,14 @@ class BPlusTree
       r, s = extra_node_range
 
       extra_key = @keys[mid]
-      extra_node  = cut_off_node(r, s)
+      extra_node = cut_off_node(r, s)
 
       @next_leaf = extra_node if leaf?
 
       # Tell the children of the new node their true father
-      extra_node.i_am_your_father!() unless leaf?
+      extra_node.i_am_your_father! unless leaf?
       # The leaf doesn't contain children nodes
-      
+
       # Update the old node
       t, u = old_node_range(mid)
       @keys = @keys[t]
@@ -165,7 +273,7 @@ class BPlusTree
 
       # There is no parent to call if the current node is root
       if root?
-        build_new_root(extra_key, extra_node) 
+        build_new_root(extra_key, extra_node)
       else
         # Ask the parent to register the new node
         @parent.add_entry(extra_key, extra_node)
@@ -173,17 +281,17 @@ class BPlusTree
     end
 
     def borrow_value
-      pos_in_parent = @parent.get_index(@keys[0]) 
+      pos_in_parent = @parent.get_index(@keys[0])
       last_one = (pos_in_parent == @parent.keys.length)
-      unless last_one
-        borrow_right 
-      else
+      if last_one
         borrow_left
+      else
+        borrow_right
       end
     end
 
     def merge(direction)
-      pos_in_parent = @parent.get_index(@keys[0]) 
+      pos_in_parent = @parent.get_index(@keys[0])
       if direction == :left
         neighbour = @parent.children[pos_in_parent - 1]
         neighbour.merge(:right)
@@ -206,7 +314,7 @@ class BPlusTree
     # They are used to clean the code, to avoid repetition,
     # or to isolate parts that need to overriden in leaves
 
-    def delete_value(index, v)
+    def delete_value(index, _)
       # Overridden in leaves
       @keys.delete_at(index)
       @children.delete_at(index + 1)
@@ -214,38 +322,33 @@ class BPlusTree
 
     def borrow_right
       # Tries to steal a couple (key, value) to the right
-      pos_in_parent = @parent.get_index(@keys[0]) 
+      pos_in_parent = @parent.get_index(@keys[0])
       neighbour = @parent.children[pos_in_parent + 1]
-      unless neighbour.keys.length <= (@max_branching / 2) + 1
-        # The neighbour has enough values to be stolen
-        borrowed_key = @parent.keys[pos_in_parent]
-        borrowed_child = neighbour.children[0]
-        # Add the borrowed value
-        add_entry(borrowed_key, borrowed_child)
-        # Delete the borrowed value on the other side and clean up
-        neighbour.abandon_first_child
-        # Send a flag "No need to merge
-        return nil
-      else
-        # The right neighbour is too small to be stolen
-        # Send a flag to merge with the right neighbour
-        return :right
-      end
+      # The right neighbour is too small to be stolen
+      # Send a flag to merge with the right neighbour
+      return :right if neighbour.keys.length <= (@max_branching / 2) + 1
+
+      # The neighbour has enough values to be stolen
+      borrowed_key = @parent.keys[pos_in_parent]
+      borrowed_child = neighbour.children[0]
+      # Add the borrowed value
+      add_entry(borrowed_key, borrowed_child)
+      # Delete the borrowed value on the other side and clean up
+      neighbour.abandon_first_child
+      # Send a flag "No need to merge
+      nil
     end
 
     def borrow_left
       # cf borrow_right
-      pos_in_parent = @parent.get_index(@keys[0]) 
+      pos_in_parent = @parent.get_index(@keys[0])
       neighbour = @parent.children[pos_in_parent - 1]
-      unless neighbour.keys.length <= (@max_branching / 2) + 1
-        borrowed_key = borrow_left_key(pos_in_parent)
-        borrowed_child = neighbour.children[-1]
-        add_entry(borrowed_key, borrowed_child)
-        neighbour.abandon_last_child
-        return nil
-      else
-        return :left
-      end
+      return :left if neighbour.keys.length <= (@max_branching / 2) + 1
+      borrowed_key = borrow_left_key(pos_in_parent)
+      borrowed_child = neighbour.children[-1]
+      add_entry(borrowed_key, borrowed_child)
+      neighbour.abandon_last_child
+      nil
     end
 
     def borrow_left_key(pos_in_parent)
@@ -273,13 +376,13 @@ class BPlusTree
     def set_lone_child_as_root
       # returns the new root
       @children[0].parent = nil
-      return @children[0]
+      @children[0]
     end
 
     def i_am_your_father!
       # Tell the node to signal to its children it is their
       # father. Necessary when some children are relocated
-      @children.each{|child| child.parent = self}
+      @children.each{ |child| child.parent = self }
     end
 
     def get_index(k)
@@ -288,17 +391,15 @@ class BPlusTree
       index = 0
       return 0 if @keys.empty?
       return @keys.length if k >= @keys[-1]
-      while k >= @keys[index]
-        index += 1
-      end
-      return index
+      index += 1 while k >= @keys[index]
+      index
     end
-      
+
     def build_new_root(extra_key, extra_node)
       # Creates a new root when splitting the root
       keys = [extra_key]
       children = [self, extra_node]
-      @parent = BPlusNode.new(@branching_factor, keys, children)
+      @parent = BPlusNode.new(@branching_factor, keys: keys, children: children)
       @parent.i_am_your_father!
     end
 
@@ -307,25 +408,25 @@ class BPlusTree
       # children in range s.
       # The ranges change if the node is a leaf, so this
       # method is overriden in the leaf class
-      BPlusNode.new(@branching_factor, @keys[r], @children[s])
+      BPlusNode.new(@branching_factor, keys: @keys[r], children: @children[s])
     end
 
     def extra_node_range
-      # Computes the number of children and keys to cut off 
+      # Computes the number of children and keys to cut off
       # the node and put in another node when splitting.
       # These ranges change in the leaves, this method is
       # overriden there
       r = ((@max_branching + 3) / 2)..@max_branching
       s = ((@max_branching + 3) / 2)..(@max_branching + 1)
-      return [r, s] 
+      [r, s]
     end
 
     def old_node_range(mid)
-      # Computes the number of children and keys remaining 
+      # Computes the number of children and keys remaining
       # in the node when splitting.
       # These ranges change in the leaves, this method is
       # overriden there
-      return [(0...mid), (0..mid)]
+      [(0...mid), (0..mid)]
     end
 
     def insert_value(k, v)
@@ -348,15 +449,14 @@ class BPlusTree
     # the leaf to their right and the leaf to their left.
     attr_accessor :next_leaf, :prev_leaf
 
-    def initialize(b, keys = [], children = [], parent = nil, next_leaf = nil, prev_leaf = nil)
+    def initialize(b, params)
       @branching_factor = b
-      @keys             = keys
-      @children         = children
-      @parent           = parent
       @max_branching    = b - 1
-      @next_leaf        = next_leaf
-      @prev_leaf        = prev_leaf
-
+      @keys             = params[:keys]
+      @children         = params[:children]
+      @parent           = params[:parent]
+      @next_leaf        = params[:next_leaf]
+      @prev_leaf        = params[:prev_leaf]
     end
 
     # State checking
@@ -371,14 +471,14 @@ class BPlusTree
       # Prints all the informations about the leaf
       # (list of values 0) [key 0] (list of values 1) [key 1] ...
       # Prints the first element of its parent at the end
-      str = ""
+      str = ''
       @children.each_with_index do |c, i|
         str << "[#{@keys[i]}: (#{c.join(', ')})] "
       end
       str << "[* parent: #{@parent.keys[0]} *] "  if @parent
       str << "[* next: #{@next_leaf.keys[0]} *] " if @next_leaf
       str << "[* prev: #{@prev_leaf.keys[0]} *] " if @prev_leaf
-      str << " *ROOT"                             if root?
+      str << ' *ROOT'                             if root?
       str
     end
 
@@ -386,33 +486,28 @@ class BPlusTree
       # Compared to the string representation of a usual
       # node, the leaf needs to print its stored values too
       # "[key: (value, value...) | key: .... ]"
-      unless @keys.empty?
-        items = (0..(@keys.length - 1)).collect do |index|
-          "#{@keys[index]}: (#{@children[index].join(', ')})"
-        end
-        str = "[ #{items.join(' | ')} ]"
-      else
-        str = "[  ]"
+      return '[  ]' if @keys.empty?
+      items = (0..(@keys.length - 1)).collect do |index|
+        "#{@keys[index]}: (#{@children[index].join(', ')})"
       end
+      "[ #{items.join(' | ')} ]"
     end
 
     # Actions
 
-    def get(k, _end = k)
-      return [] if (!k or _end < k)
+    def get(k, end_ = k)
+      return [] if !k || end_ < k
       index = get_index(k) - 1
       result = []
-      if @keys.include?(k)
-        result.concat(@children[index])
-      end
-      unless index == (@keys.length - 1)
-        result.concat(get(next_key(index), _end))
+      result.concat(@children[index]) if @keys.include?(k)
+      if index != (@keys.length - 1)
+        result.concat(get(next_key(index), end_))
       else
-        result.concat(@next_leaf.get(next_key(index), _end))
+        result.concat(@next_leaf.get(next_key(index), end_))
       end
       result
     end
-    
+
     def bulk_add(entries)
       # Builds the tree bottom up from a list of leaves
       # entries is pre-sorted by the tree
@@ -424,21 +519,22 @@ class BPlusTree
           # If the key list is already full, create a leaf to the
           # right, link it as the right neighbour and ask it to
           # continue the job recursively
-          next_node = BPlusLeaf.new(@branching_factor, [], [], nil, nil, self)
+
+          next_node = BPlusLeaf.new(@branching_factor, keys: [], children: [], prev_leaf: self)
           @next_leaf = next_node
           if root?
             # If no parent yet, create a new one to handle the split
-            build_new_root(k, next_node) 
+            build_new_root(k, next_node)
           else
             # Ask the parent to register the new node
             @parent.add_entry(k, next_node)
           end
           # Ask the new node to handle the rest of the list
           next_node.bulk_add(entries[i..-1])
-          return
+          break
         end
         (no_change = (k == mem)) if mem
-        unless no_change
+        if !no_change
           # New key, create a corresponding bucket and put the value
           # in it
           @keys << k
@@ -448,9 +544,8 @@ class BPlusTree
         else
           # If k doesn't change, just append the value to the bucket
           @children[mem_index] << v
-          no_change = false
         end
-      end 
+      end
     end
 
     def insert(k, v) # Override
@@ -487,20 +582,20 @@ class BPlusTree
     def extra_node_range # Override
       # For a leaf the mid value is kept (all the values stay
       # in the leaf) and the range kept for the keys and the
-      # children are the same. 
+      # children are the same.
       r = ((@max_branching + 1) / 2)..@max_branching
-      return [r, r]
+      [r, r]
     end
 
     def old_node_range(mid)
-      return [(0...mid), (0...mid)]
+      [(0...mid), (0...mid)]
     end
 
     def insert_value(k, v) # Override
       # appends v to its bucket, defining the bucket if
       # necessary
       if v.is_a?(Array)
-        v.each{ |_v| insert_value(k, _v) }
+        v.each{ |v_| insert_value(k, v_) }
       else
         index = get_index(k)
         if @keys.include?(k)
@@ -515,19 +610,25 @@ class BPlusTree
     end
 
     def delete_value(index, v)
-      values = @children[index]
-      @children[index].select!{|value| value != v}
-      if @children[index].empty?
-        @keys.delete_at(index)
-        @children.delete_at(index)
-      end
+      @children[index].select!{ |value| value != v }
+
+      return unless @children[index].empty?
+
+      @keys.delete_at(index)
+      @children.delete_at(index)
     end
 
     def cut_off_node(r, s) # Override
       # For a leaf, the next and previous leaves need to be
       # given when a new leaf appears.
-      BPlusLeaf.new(@branching_factor, @keys[r], @children[s],
-      @parent, @next_leaf, self)
+      params = {
+        keys:       @keys[r],
+        children:   @children[s],
+        parent:     @parent,
+        next_leaf:  @next_leaf,
+        prev_leaf:  self
+      }
+      BPlusLeaf.new(@branching_factor, params)
     end
 
     # Specific Helpers
@@ -536,132 +637,10 @@ class BPlusTree
       # Get the key following the given index, even if it is the
       # first key of the next node
       if index >= @keys.length - 1
-        @next_leaf? @next_leaf.keys[0] : nil
+        @next_leaf ? @next_leaf.keys[0] : nil
       else
         @keys[index + 1]
       end
     end
-  end
-
-  # Back to the BPlusTree class
-
-  # Constructors
-  
-  def initialize(b)
-    # A void root
-    @root = BPlusLeaf.new(b, [], [], nil)
-    @branching_factor = b
-  end
-
-  def self.bulk_load(entries, b)
-    # constructs the tree bottom up from a list of entries
-    obj = self.new(b)
-    entries.sort_by!{|e| [e[0], e[1]]}
-    obj.root.bulk_add(entries)
-    obj.update_root
-    obj
-  end
-
-  # Stringification
-
-  def to_s
-    # Prints and centers line by line each layer of nodes
-    layers = []
-    # Stores the list of nodes at the current depth of the
-    # tree
-    nodes = [@root]
-    # Keep track of the longest line to center the current
-    # line
-    _max = 0
-    loop do
-      # Print the layer of nodes at the current depth in the
-      # tree
-      new_layer = print_layer(nodes)
-      # Center the string corresponding to the layer by
-      # padding with spaces
-      unless layers.length == 0
-        l = new_layer.length
-        if l < _max
-          new_layer = ' '*((_max - l)/2) + new_layer
-        elsif l > _max
-          layers.collect! do |layer|
-            ' '*((l - _max) / 2) + layer
-          end
-          _max = l
-        end
-      end
-      layers << new_layer
-      
-      # gets the layers at the next depth in the graph
-      nodes.collect!{ |node| node.children }.flatten!
-      break unless nodes[0].is_a?(BPlusNode) 
-    end
-    # prints each layer in the graph as a line
-    layers.join("\n")
-  end
-
-  def inspect
-    # Prints and centers line by line each layer of nodes
-    layers = []
-    # Stores the list of nodes at the current depth of the
-    # tree
-    nodes = [@root]
-    # Keep track of the longest line to center the current
-    # line
-    _max = 0
-    loop do
-      # Print the layer of nodes at the current depth in the
-      # tree
-      new_layer = inspect_layer(nodes)
-      layers << new_layer
-      # gets the layers at the next depth in the graph
-      nodes.collect!{ |node| node.children }.flatten!
-      break unless nodes[0].is_a?(BPlusNode) 
-    end
-    # prints each layer in the graph as a line
-    layers.join("\n---\n")
-  end
-
-  # Actions
-
-  def get(key, _end = key)
-    @root.get(key, _end).sort
-  end
-
-  def add_entry(key, value)
-    # The insert request is given to the root, trickles down
-    # the tree, is processed by a leaf, and then triggers a
-    # bottom up balancing of the tree
-    @root.insert(key, value)
-    # Inserting a value may trigger a fork at the top of the
-    # tree, resulting in a new root
-    @root = @root.parent if @root.parent
-  end
-
-  def remove_entry(key, value)
-    @root.remove(key,value)
-    if @root.keys.empty?
-      @root = @root.set_lone_child_as_root
-    end
-  end
-
-  # Helpers
-
-  def update_root
-    # Resets the root in case it was split up
-    while @root.parent
-      @root = @root.parent
-    end
-  end
-
-  def print_layer(nodes)
-    # to get the string for a layer, i concatenate the
-    # strings for each node in the layer.
-    nodes.collect{ |node| node.to_s }.join(' ')
-  end
-
-  def inspect_layer(nodes)
-    # Inspects the nodes at a given depth
-    nodes.collect{ |node| node.inspect }.join("\n")
   end
 end
