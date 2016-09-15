@@ -503,7 +503,7 @@ class BPlusTree
       if index != (@keys.length - 1)
         result.concat(get(next_key(index), end_))
       else
-        result.concat(@next_leaf.get(next_key(index), end_))
+        result.concat(@next_leaf.get(next_key(index), end_)) if @next_leaf
       end
       result
     end

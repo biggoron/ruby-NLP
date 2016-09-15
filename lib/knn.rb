@@ -11,17 +11,17 @@ class Knn
   attr_reader :branching_factor
     
   def initialize(values = nil, params = {})
-    puts "** values are #{values[0]} **"
     # The reference points for iDistance should be given
     @ref_points = params[:ref_points]
     # Else the barycenter is used as the only reference
     @ref_points ||= [mean(values)]
-    puts "** ref point is #{@ref_points} **"
     # Computes keys
     @tree_precision = 0.0000001
     entries = values.collect{ |v|
-      puts "** adding #{v} **"
-      [key(v), v] } 
+      k = key(v)
+      puts "** adding #{v} at index #{k} **"
+      [k, v]
+    } 
     @branching_factor = params[:branching_factor]
     @branching_factor ||= 15 # TODO: find a default number 
     # Create tree
@@ -51,7 +51,7 @@ class Knn
     loop do
       estimate = get_d(value, d)
       trigger = 10 ** (Math.log10(@tree_precision).floor)
-      return estimate if (d - mem) < trigger
+      return estimate if mem && (d - mem) < trigger
       case estimate.length <=> k
         when 1
           high = d
@@ -67,15 +67,24 @@ class Knn
   end
 
   def get_d(value, distance)
+    puts "** searching around #{value} with radius #{distance} **"
     # Get all points within distance d from entry
     candidates = []
     @ref_points.each_with_index do |ref, i|
       ref_dist = dist(ref, value)
+      puts "** dist to ref is #{ref_dist} **"
       begin_ = i + normalize(ref_dist - distance)
       end_ = i + normalize(ref_dist + distance)
-      candidates << @tree.get(begin_, end_)
+      result = @tree.get(begin_, end_)
+      puts "** searching from #{begin_} to #{end_} gives #{result} **"
+      candidates.concat(result)
     end
-    candidates.filter!{ |c| lazy_compare(value, c, distance) }
+    puts "** the candidates are #{candidates} **"
+    candidates.select! do |c|
+      puts "** examining #{c} **"
+      lazy_compare(value, c, distance)
+    end
+    candidates ? candidates : []
   end
 
 
@@ -90,7 +99,6 @@ class Knn
     # Gets the closer reference and the distance to it
     index, distance = @ref_points.inject([0, :infinity, -1]) do |mem, p|
       mem[2] += 1
-      puts "** comparing #{p} and #{v} **"
       d = dist(p, v)
       next unless mem[1] == :infinity || d < mem[1]
       mem[1] = d
@@ -106,12 +114,9 @@ class Knn
     # TODO: should be improved to handle sparse representations
     # (hash etc...)
     total = values.length
-    first = values.pop
-    puts "** first is #{first} **"
+    first = Array.new(values[0].length, 0)
     sum = values.inject(first) do |temp_sum, v| 
-      puts "** adding #{v} to #{temp_sum} **"
       v.each_with_index do |e, i|
-        puts "**   adding #{e} to #{temp_sum[i]} **"
         temp_sum[i] += e
       end
       temp_sum
@@ -147,10 +152,13 @@ class Knn
     # TODO: implement for hashes
 
     d2 = distance * distance
+    puts "** comparing #{v1} to #{v2}, it should not exceed #{d2} **"
+
     v1.inject([0, 0]) do |mem, v|
       mem[0] += (v - v2[mem[1]]) * (v - v2[mem[1]])
       return false if mem[0] > d2
       mem[1] += 1
+      mem
     end
     true
   end

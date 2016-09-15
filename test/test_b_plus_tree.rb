@@ -255,13 +255,17 @@ class TestBPlusTree < Minitest::Test
     get7 = my_tree.get(7)
     get18 = my_tree.get(18)
     get_r58 = my_tree.get(5, 8)
+    get_r28 = my_tree.get(-2, 8)
     get_r1523 = my_tree.get(15, 23)
+    get_r1550 = my_tree.get(15, 50)
 #   assert_equal my_tree.inspect, my_tree.to_s
     assert_equal get5, [320]
     assert_equal get7, [232, 322]
     assert_equal get18, [729, 738, 819]
     assert_equal get_r58, [232, 320, 322]
+    assert_equal get_r28, [232, 320, 322]
     assert_equal get_r1523, [78, 88, 98, 729, 738, 819, 829]
+    assert_equal get_r1550, [78, 88, 98, 729, 738, 819, 829, 9678]
   end
 
   def test_integration_float
