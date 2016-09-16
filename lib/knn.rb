@@ -15,13 +15,17 @@ class Knn
     @ref_points = params[:ref_points]
     # Else the barycenter is used as the only reference
     @ref_points ||= [mean(values)]
+    # Gives the precision used for the float keys
+    @tree_precision = params[:precision]
+    @tree_precision ||= 0.0000001
     # Computes keys
-    @tree_precision = 0.0000001
     entries = values.collect{ |v| [key(v), v] }
     @branching_factor = params[:branching_factor]
     @branching_factor ||= 15 # TODO: find a default number
     # Create tree
     @tree = BPlusTree.bulk_load(entries, @branching_factor)
+    # It is usefull to keep track of the number of entries to
+    # be sure we don't ask for more neighbours than possible
     @stored_entries = values.length if values
   end
 
@@ -45,9 +49,14 @@ class Knn
     high = nil
 
     loop do
+      # Dichotomic search of the good radius of search to get
+      # k neighbours
       estimate = get_d(value, d)
       power = Math.log10(@tree_precision).floor
       trigger = 10**power
+      # If the distance doesn't move more in one step than
+      # the precision on the keys of the tree, then the
+      # dichotomic search has finished searching
       return estimate if mem && (d - mem) < trigger
       case estimate.length <=> k
       when 1
@@ -69,16 +78,18 @@ class Knn
       ref_dist = dist(ref, value)
       begin_ = i + normalize(ref_dist - distance)
       end_ = i + normalize(ref_dist + distance)
+      # issues a range request on the B+ tree
       result = @tree.get(begin_, end_)
       candidates.concat(result)
     end
     candidates.select! do |c|
+      # The answer is within the values returned by the tree
       lazy_compare(value, c, distance)
     end
+    # Return an empty list if nothing were found
     candidates ? candidates : []
   end
 
-  # should be put in an external helper file
   def key(v)
     # Computes the key of the value v
     index, distance = get_closer_ref(v)
@@ -93,23 +104,16 @@ class Knn
       next unless mem[1] == :infinity || d < mem[1]
       mem[1] = d
       mem[0] = mem[2]
-      mem
     end
     [index, distance]
   end
 
-  # should be put in an external helper file
   def mean(values)
     # Computes the mean of a sequence of vectors
-    # TODO: should be improved to handle sparse representations
-    # (hash etc...)
     total = values.length
     first = Array.new(values[0].length, 0)
     sum = values.each_with_object(first) do |v, temp_sum|
-      v.each_with_index do |e, i|
-        temp_sum[i] += e
-      end
-      temp_sum
+      v.each_with_index{ |e, i| temp_sum[i] += e }
     end
     sum.collect!{ |e| e.to_f / total }
   end
@@ -126,11 +130,10 @@ class Knn
   end
 
   def dist(v1, v2)
-    # TODO: implement for hashes
+    # computes a simple distance
     d, = v1.each_with_object([0, 0]) do |v, mem|
       mem[0] += (v - v2[mem[1]]) * (v - v2[mem[1]])
       mem[1] += 1
-      mem
     end
     Math.sqrt(d)
   end
@@ -139,15 +142,12 @@ class Knn
     # returns false as soon as possible if the distance
     # between v1 and v2 is going to exceed distance
 
-    # TODO: implement for hashes
-
     d2 = distance * distance
 
     v1.each_with_object([0, 0]) do |v, mem|
       mem[0] += (v - v2[mem[1]]) * (v - v2[mem[1]])
       return false if mem[0] > d2
       mem[1] += 1
-      mem
     end
     true
   end
