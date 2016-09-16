@@ -1,15 +1,15 @@
-# encoding: utf-8 
+# encoding: utf-8
 
 # K-nearest-neighbours implementation
 # Dan Ringwald @ Recast.AI @ Paris
 # contact: dan.ringwald12@gmail.com
 
-require "./lib/b_plus_tree"
+require './lib/b_plus_tree'
 
 class Knn
   attr_accessor :ref_points
   attr_reader :branching_factor
-    
+
   def initialize(values = nil, params = {})
     # The reference points for iDistance should be given
     @ref_points = params[:ref_points]
@@ -17,11 +17,7 @@ class Knn
     @ref_points ||= [mean(values)]
     # Computes keys
     @tree_precision = 0.0000001
-    entries = values.collect{ |v|
-      k = key(v)
-      puts "** adding #{v} at index #{k} **"
-      [k, v]
-    } 
+    entries = values.collect{ |v| [key(v), v] } 
     @branching_factor = params[:branching_factor]
     @branching_factor ||= 15 # TODO: find a default number 
     # Create tree
@@ -67,21 +63,16 @@ class Knn
   end
 
   def get_d(value, distance)
-    puts "** searching around #{value} with radius #{distance} **"
     # Get all points within distance d from entry
     candidates = []
     @ref_points.each_with_index do |ref, i|
       ref_dist = dist(ref, value)
-      puts "** dist to ref is #{ref_dist} **"
       begin_ = i + normalize(ref_dist - distance)
       end_ = i + normalize(ref_dist + distance)
       result = @tree.get(begin_, end_)
-      puts "** searching from #{begin_} to #{end_} gives #{result} **"
       candidates.concat(result)
     end
-    puts "** the candidates are #{candidates} **"
     candidates.select! do |c|
-      puts "** examining #{c} **"
       lazy_compare(value, c, distance)
     end
     candidates ? candidates : []
@@ -152,7 +143,6 @@ class Knn
     # TODO: implement for hashes
 
     d2 = distance * distance
-    puts "** comparing #{v1} to #{v2}, it should not exceed #{d2} **"
 
     v1.inject([0, 0]) do |mem, v|
       mem[0] += (v - v2[mem[1]]) * (v - v2[mem[1]])
