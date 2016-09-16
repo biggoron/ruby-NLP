@@ -10,6 +10,12 @@ namespace :test do
     exec_test('./test/test_term_frequency/')
   end
 
+  desc 'Triggers knn algo tests' 
+  task :knn do
+    require './test/test_b_plus_tree.rb'
+    require './test/test_knn.rb'
+  end
+
   desc 'Triggers the documents/corpuses test suite'
   task :corpus do
     exec_test('./test/corpus')

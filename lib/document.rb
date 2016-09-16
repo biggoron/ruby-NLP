@@ -7,55 +7,46 @@ require_relative 'term_frequency'
 # removal etc...) and yield various representations of itself
 # like TF-IDF, ngrams, markov model etc...
 class Document
-  attr_accessor :stop_words, :source, :tfh, :corpus
+  attr_accessor :stop_words, :source
+  attr_reader :access
 
   # Constructors
-  def initialize
+  def initialize(name = nil)
     # Initializes an empty document, not very usefull
+    @access = {}
+    @access[name: name] if name
     @source = []
-
     @length = 0
-
-    @tfh = TFHash.new
-
     @stop_words_array_memory = [' ']
     @stop_words = / / # For example
   end
 
   # instantiate empty docs, and fill them with methods
   # :add_file, :add_string or :add_array
-  def self.from_file(filepath)
-    obj = self.new
-
+  def self.from_file(filepath, name = nil)
+    obj = self.new(name)
     obj.add_file(filepath)
-
     obj
   end
 
-  def self.from_string(string)
-    obj = self.new
-
+  def self.from_string(string, name = nil)
+    obj = self.new(name)
     obj.add_string(string)
-
     obj
   end
 
-  def self.from_array(array)
-    obj = self.new
-
+  def self.from_array(array, name = nil)
+    obj = self.new(name)
     obj.add_array(array)
-
     obj
   end
 
   # Clears the document
   def reset
     @source = []
-
     @length = 0
-
-    @tfh = TFHash.new
-
+    @access = {}
+    
     # By default a document considers only a space as a stop
     # word
     @stop_words_array_memory = [' ']
@@ -68,7 +59,7 @@ class Document
   end
 
   # Appends an array of words to the document
-  def add_array(array)
+  def add_array(array, rebuild = Hash.new(true))
     raise ArgumentError, 'The argument needs to be an Array' unless array.is_a?(Array)
 
     array.each do |w|
@@ -79,31 +70,34 @@ class Document
       @source << w unless w == ''
     end
 
-    self.update_tfh
+    build_tfh if @access[:tfh] && rebuild[:tfh]
+    build_tfidf if @access[:tfidf] && rebuild[:tfidf]
 
     # I return the Document object to enable chaining
     self
   end
 
-  def add_string(text, stop_regex = @stop_words)
+  def add_string(text, stop_regex = @stop_words, rebuild = Hash.new(true))
     raise ArgumentError, 'The argument needs to be an String' unless text.is_a?(String)
 
     # Splits the text on stop words (including spaces) and
     # then relies on the corresponding method for array
-    self.add_array(text.split(stop_regex))
+    self.add_array(text.split(stop_regex), rebuild)
 
     # I return the Document object to enable chaining
     self
   end
 
-  def add_file(filepath, stop_regex = @stop_words)
+  def add_file(filepath, stop_regex = @stop_words, rebuild = Hash.new(true))
     raise ArgumentError, 'The argument needs to be a String' unless filepath.is_a?(String)
 
     File.foreach(filepath) do |line|
       # Extracts text from file and then relies on the
       # corresponding method for text
-      self.add_string(line, stop_regex)
+      self.add_string(line, stop_regex, Hash.new(false))
     end
+    build_tfh if @access[:tfh] && rebuild[:tfh]
+    build_tfidf if @access[:tfidf] && rebuild[:tfidf]
 
     # I return the Document object to enable chaining
     self
@@ -113,14 +107,6 @@ class Document
     raise
   end
   # --- End of constructors ---
-
-  # --- Corpus methods ---
-  # being inserted in a corpus is necessary to perform some
-  # processing like IDF
-  def corpus?
-    !@corpus.nil?
-  end
-  # --- end of corpus methods ---
 
   # --- stop words ---
   # Stop words are words that get removed when analysing the
@@ -185,17 +171,23 @@ class Document
   # --- TF-IDF methods ---
   # Builds the term frequency hash
   # cf term_frequency.rb
-  def update_tfh
-    @tfh = TFHash.from_array(@source)
+  def build_tfh
+    @access[:tfh] = TFHash.from_array(@source)
   end
 
-  def tfidf(word)
-    raise NoMethodError, 'Needs a corpus to compute TFIDF' unless self.corpus?
+  def tfidf(words, idf)
+    build_tfh unless @access[:tfh]
+    words = [words] if words.is_a?(String)
+    words.collect do |w|
+      @access[:tfh][word].to_f * idf[word]
+    end
+  end
 
-    self.update_tfh
-    @corpus.update_idf!
-
-    @tfh[word].to_f * @corpus.idf.call(word)
+  def build_tfidf(idf)
+    temp = idf.to_a.sort{ |e1, e2| e1[0] <=> e2[0] }
+    temp.collect!{ |e| @access[:tfh][e[0]].to_f * e[1] }
+    @access[:idf] = temp
+    temp
   end
   # --- end of tfh methods ---
 

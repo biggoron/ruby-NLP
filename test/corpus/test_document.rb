@@ -73,17 +73,15 @@ class TestDocument < Minitest::Test
     @my_doc.add_string("one, two; three.")
     assert_equal @my_doc.source, ["one", "two;", "three"]
 
-    @my_doc.update_tfh
-
-    tfh = @my_doc.tfh
-    puts "length: #{tfh.length}"
+    @my_doc.build_tfh
+    tfh = @my_doc.access[:tfh]
 
     assert_equal tfh["one"], 1
     assert_equal tfh["two;"], 1
 
     @my_doc.add_stop_word(";")
-    @my_doc.update_tfh
-    tfh = @my_doc.tfh
+    @my_doc.build_tfh
+    tfh = @my_doc.access[:tfh]
     assert_equal tfh["one"], 1
     assert_equal tfh["two;"], 1
   end

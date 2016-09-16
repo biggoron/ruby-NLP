@@ -7,10 +7,11 @@
 require './lib/b_plus_tree'
 
 class Knn
-  attr_accessor :ref_points
+  attr_accessor :ref_points, :values
   attr_reader :branching_factor
 
   def initialize(values = nil, params = {})
+    @values = values
     # The reference points for iDistance should be given
     @ref_points = params[:ref_points]
     # Else the barycenter is used as the only reference
@@ -19,29 +20,35 @@ class Knn
     @tree_precision = params[:precision]
     @tree_precision ||= 0.0000001
     # Computes keys
-    entries = values.collect{ |v| [key(v), v] }
+    entries = values.map.with_index{ |v, i| [key(v), i] }
     @branching_factor = params[:branching_factor]
     @branching_factor ||= 15 # TODO: find a default number
     # Create tree
     @tree = BPlusTree.bulk_load(entries, @branching_factor)
     # It is usefull to keep track of the number of entries to
     # be sure we don't ask for more neighbours than possible
-    @stored_entries = values.length if values
+  end
+  
+  def dataset_size
+    @values.length
   end
 
+  # Setters
   def add_seeds(values)
     # Adds values in the tree, one by one
-    values.each do |v|
-      @tree.add_entry(key(v), v)
-      @stored_entries ||= 0
-      @stored_entries += 1
+    offset = @values.length
+    @values.concat(values)
+    values.each_with_index do |v, i|
+      @tree.add_entry(key(v), offset + i)
     end
   end
+
+  # Getters
 
   def get_k(value, k)
     # Get the k nearest neighbours to the entry
 
-    raise ArgumentError, 'There is not enough registered points to satisfy the request' if k >= @stored_entries
+    raise ArgumentError, 'There is not enough registered points to satisfy the request' if k > dataset_size
 
     d = 0.001
     mem = nil
@@ -84,11 +91,18 @@ class Knn
     end
     candidates.select! do |c|
       # The answer is within the values returned by the tree
-      lazy_compare(value, c, distance)
+      lazy_compare(value, @values[c], distance)
     end
     # Return an empty list if nothing were found
-    candidates ? candidates : []
+    candidates ||= []
+    candidates
   end
+
+  def get_values(indexes)
+    indexes.collect{ |i| @values[i] }
+  end
+
+  private
 
   def key(v)
     # Computes the key of the value v
