@@ -1,2 +1,2 @@
 # ruby-NLP
-NLP library in ruby
+i-distance index for ruby nlp
