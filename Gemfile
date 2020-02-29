@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
 group :development, :test do
-  gem 'rake', '~> 11.1'
+  gem 'rake', '~> 12.3'
 
   # Utils
   gem 'awesome_print', '~> 1.6'
